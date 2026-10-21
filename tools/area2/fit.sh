@@ -5,7 +5,7 @@
 # The macros are the ones the RTL still reads with a value (the RSP's lanes, the CPU's caches), at the values the RTL
 # defaults to, so the bitstream is the one projects/mirlo.qsf alone builds. The
 # features that were once macros of their own are always in now.
-# With "map": quartus_map only. WAIT=1: the compile in the foreground, with its exit status (else it runs in the background). DROP="RSP_LANES" leaves that macro out; EXTRA_MACROS="A=1 B=2" adds MIRLO_A=1 ... (EXTRA_MACROS="NO_GB_CART=1": the build without the Transfer Pak's cartridge port).
+# With "map": quartus_map only. WAIT=1: the compile in the foreground, with its exit status (else it runs in the background). DROP="RSP_LANES" leaves that macro out; EXTRA_MACROS="A=1 B=2" adds MIRLO_A=1 ....
 set -e
 W=$(cd "$(dirname "$0")/../.." && pwd)
 tag=$1; seed=$2; extra=$3; mode=$4

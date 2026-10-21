@@ -24,9 +24,7 @@ set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
 set_global_assignment -name OPTIMIZATION_MODE "HIGH PERFORMANCE EFFORT"
 # The build's Verilog macros: the depth of the RDP's command FIFO in the
 # register block (rtl/soc/mirlo_regs.sv) and the JTAG UART left out
-# (rtl/soc/mirlo_mips.sv). MIRLO_NO_GB_CART=1 would leave out the Game Boy
-# cartridge port of the Transfer Pak too (rtl/soc/gb_cart.sv; the setting then
-# finds the pak with no cartridge in it).
+# (rtl/soc/mirlo_mips.sv).
 set_global_assignment -name VERILOG_MACRO "CMDQ_AW=12"
 set_global_assignment -name VERILOG_MACRO "MIRLO_NO_JTAG_UART=1"
 set_global_assignment -name SAVE_DISK_SPACE OFF

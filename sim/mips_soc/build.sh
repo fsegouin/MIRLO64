@@ -16,7 +16,7 @@ soc)
     # the Quartus project's macros (projects/mirlo.qsf) but MIRLO_NO_JTAG_UART (the JTAG UART is built, its chain idle)
     DEFS="+define+CMDQ_AW=12 ${EXTRA_DEFS:-}"
     # (the closing set's MIRLO_* macros are always on in the RTL now; EXTRA_DEFS is for the value macros: MIRLO_CPU_IC_LOG2,
-    # MIRLO_CPU_DC_LOG2, MIRLO_RSP_LANES; and MIRLO_NO_GB_CART. The bench's clocks are the closing set's: the SoC at 62.5 MHz, the game CPU at 3/2 of it.)
+    # MIRLO_CPU_DC_LOG2, MIRLO_RSP_LANES. The bench's clocks are the closing set's: the SoC at 62.5 MHz, the game CPU at 3/2 of it.)
     S="$R/rtl/soc"
     "$VL" --cc --exe --build -j 8 -O3 ${VL_THREADS:+--threads $VL_THREADS} -Wno-fatal -Wno-lint -Wno-style -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-MULTIDRIVEN \
         --x-assign fast --x-initial fast -Mdir "${OBJ:-$HERE/obj_soc}" --top-module soc_sim_top $DEFS ${TBC:+-CFLAGS "$TBC"} -I"$S" \

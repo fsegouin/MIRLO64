@@ -836,7 +836,7 @@ synthesis at its fast effort, and a placement effort multiplier of 10. The fitte
   assignments, and starts a full compile in the background (`quartus_map` only with `map`). The log is
   `projects_a2_<tag>.compile.log`. `QUARTUS_BIN` names Quartus's `bin` directory. The macros it appends are the ones
   the RTL still reads with a value (the RSP's lanes, the caches' sizes), at the RTL's own defaults; `EXTRA_MACROS` adds
-  others (`NO_GB_CART=1`: the bitstream without the Transfer Pak's cartridge port).
+  others.
 - `ooc.sh <tag> <unit>` synthesises one unit alone (the CPU, the RDP, the RSP, the scan-out or the registers) with the
   project's settings and the same macros: a minute or two, and the same count for the same source, where the whole
   design's synthesis can move a unit nobody touched from one run to the next.
