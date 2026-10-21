@@ -17,9 +17,8 @@
 //                 and its counters
 //   TIMER0        a free-running 64-bit cycle counter, latched by a write
 //   UART          the JTAG UART
-//   GB_CART       a Game Boy cartridge in the Pocket's slot: the port on and
-//                 trusted, one byte read or written at a time (with
-//                 MIRLO_NO_GB_CART there is no port and all three read 0)
+//   GB_CART       (MIRLO_GB_CART) a Game Boy cartridge in the Pocket's slot:
+//                 the port on and trusted, one byte read or written at a time
 //   VIDEO_FRAMEBUFFER  the scan-out's base (latched by it at the frame
 //                 boundary), its enables and its mode
 // One access port: an access in the cycle of r_req, its read data the next.
@@ -100,7 +99,7 @@ module mirlo_regs (
     output logic        uart_rx_pop,
     input  wire  [7:0]  uart_rx_byte,
     input  wire         uart_rxempty,
-    // GB_CART: the Pocket's cartridge slot (rtl/soc/gb_cart.sv; none with MIRLO_NO_GB_CART)
+    // GB_CART: the Pocket's cartridge slot (rtl/soc/gb_cart.sv; MIRLO_GB_CART)
     // MONITOR (MIRLO_MON): the game CPU's monitor level (mips_core's MON)
     input  wire         mon_sp, mon_field,  // the RSP's interrupt (a level); a field began (a pulse)
     input  wire         mon_dp,             // the RDP completed a SYNC FULL (a pulse)
@@ -433,12 +432,10 @@ always_ff @(posedge clk) begin
     R_MONITOR_LEVEL:                    r_rdata <= {31'd0, mon_sp};
     R_MONITOR_MIINTR:                   r_rdata <= {15'd0, pi_busy, 2'd0, mi_mask, 2'd0, mi_intr};
     R_MONITOR_PILEN:                    r_rdata <= {pi_busy, 10'd0, pi_cnt};
-`ifndef MIRLO_NO_GB_CART
     R_GB_CART_ID:                       r_rdata <= 32'h4742_0001;
     R_GB_CART_CTRL:                     r_rdata <= {30'd0, gbc_trust, gbc_on};
     // (BUSY from the write on: the engine's own busy is a cycle behind gbc_start)
     R_GB_CART_ACCESS:                   r_rdata <= {gbc_busy || gbc_start, 23'd0, gbc_rdata};
-`endif
     default:                            r_rdata <= 32'd0;
     endcase
 end

@@ -1,7 +1,7 @@
 /* The accessory (n64rt_pak.c) under libultra's own code: its Controller Pak
  * file system (osPfs*) and its Transfer Pak functions (osGbpak*), as a game
  * would call them. Run in sim/mips_soc with a Game Boy ROM as the cartridge
- * in the Pocket's slot (the SoC built without MIRLO_NO_GB_CART:
+ * in the Pocket's slot (the SoC built with MIRLO_GB_CART:
  * sim/mips_soc/gb_cart_model.sv, which checks the port's timing):
  *     tb_soc build/pak_test.bin -c 120 +gbcart=<rom.gb>
  * Without +gbcart, or on a SoC without the port, the slot's Transfer Pak

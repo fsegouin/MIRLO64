@@ -162,7 +162,7 @@ BLOCKS = [
         ("ACCESS", 0x08, RW, 1, [("DATA", 0, 8), ("ADDR", 8, 16), ("WE", 24, 1), ("BUSY", 31, 1)]),
     ]),
 ]
-# (GB_CART: with the Verilog macro MIRLO_NO_GB_CART there is no port and all three read 0)
+# (GB_CART: only with the Verilog macro MIRLO_GB_CART -- without it all three read 0)
 MRDP_CMD_FIFO_DEPTH = 2048      # CMD_STATUS.LEVEL is its width + 1 bits: 12
 
 # soc.h's constants and mem.h's regions (the names the firmware uses)

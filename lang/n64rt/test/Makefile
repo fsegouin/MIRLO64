@@ -7,8 +7,8 @@
 #   python3 make_gb.py $(ULTRALIB) /tmp/test.gb     a Game Boy ROM for the test (with the
 #                                           logo libultra checks for: keep it out of here)
 #   ROM=<any .z64> <sim/mips_soc>/tb_soc build/pak_test.bin -c 150 +gbcart=/tmp/test.gb
-# (+gbcart: the ROM as the cartridge in the Pocket's slot, on a SoC built without
-# MIRLO_NO_GB_CART; without +gbcart the slot is empty. ROM= makes the test the program
+# (+gbcart: the ROM as the cartridge in the Pocket's slot, on a SoC built with
+# MIRLO_GB_CART; without it the slot is empty. ROM= makes the test the program
 # of data.json's runtime slot, as sim/mips_soc/tb_soc.cpp says)
 MIRLO    ?= ../../..
 VERSION  ?= 7

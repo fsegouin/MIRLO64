@@ -728,9 +728,7 @@ pak is formatted empty. The slot gets a file size when the game first writes to 
 
 The cartridge is the Game Boy cartridge in the Pocket's own slot, reached a byte at a time through the `GB_CART`
 registers and `rtl/soc/gb_cart.sv`. Its mapper, RAM, battery and clock are the real ones: nothing is emulated and no
-file is involved. `core.json` has `cartridge_adapter` 0, which has the Pocket power the slot. A bitstream built with
-the Verilog macro `MIRLO_NO_GB_CART` has no port: its pins stay as the template leaves them, `GB_CART.ID` reads 0, and
-the Transfer Pak setting then gives a pak with no cartridge in it.
+file is involved. `core.json` has `cartridge_adapter` 0, which has the Pocket power the slot.
 
 - The cartridge is held in reset except while the game has its power on and while it is looked for: when the core
   starts with the setting on, when the game turns the power on, and once a second while the game polls the status with

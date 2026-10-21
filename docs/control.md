@@ -214,7 +214,7 @@ Pak uses.
 
 | Register | Offset | Dir | What |
 |---|---|---|---|
-| `ID` | `0x00` | R | `0x4742_0001`; 0 in a bitstream built with `MIRLO_NO_GB_CART`, which has no port (`CTRL` and `ACCESS` read 0 too) |
+| `ID` | `0x00` | R | `0x4742_0001` |
 | `CTRL` | `0x04` | RW | Bit 0 `ON`: the cartridge out of reset, the bus driven. Bit 1 `TRUST`: chip select and writes allowed (it is a Game Boy's cartridge) |
 | `ACCESS` | `0x08` | RW | Write: an access starts (not while `BUSY`): `DATA` bits 7:0, `ADDR` bits 23:8, `WE` bit 24. Read: `BUSY` bit 31 and the byte read in `DATA` |
 
