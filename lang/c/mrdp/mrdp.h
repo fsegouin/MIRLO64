@@ -34,6 +34,11 @@
 #ifndef MRDP_H
 #define MRDP_H
 
+/* MRDP_EXACT_DIV: the console's perspective divide (mrdp_n64_div), the model as the RTL is. MRDP_EXACT implies it. */
+#if defined(MRDP_EXACT) && !defined(MRDP_EXACT_DIV)
+#define MRDP_EXACT_DIV 1
+#endif
+
 #include <stdint.h>
 
 /* opcodes (bits [61:56] of a command, i.e. [29:24] of its first word) */
@@ -172,7 +177,9 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
  * With it:
  *   MRDP_NO_BLEND  no blender: a pixel is the combiner's output (no fog),
  *                  the colour image is never read, and a translucent surface
- *                  is drawn through a screen door by its alpha */
+ *                  is drawn through a screen door by its alpha
+ *   MRDP_EXACT_DIV the console's perspective divide (mrdp_n64_div), as
+ *                  rtl/rdp has it; without it the model's own (mrdp_persp) */
 typedef struct {
     uint8_t fmt;          /* 0 RGBA5551 (N64 layout: R[15:11] G B A[0]),
                              1 IA88 (I[15:8] A[7:0]), 2 RGBA4444 (R[15:12]..A[3:0]);
@@ -244,5 +251,11 @@ void mrdp_push(mrdp_t *r, uint32_t word);
 /* building blocks, exported for unit tests and the RTL testbenches */
 uint32_t mrdp_rcp(uint32_t w, int *shift);   /* see mrdp.c */
 int32_t mrdp_persp(int32_t s, uint32_t w);   /* S/W as s10.5 */
+#ifdef MRDP_EXACT_DIV
+/* MRDP_EXACT_DIV: the console's perspective divide (mrdp.c; docs/rdp.md, Coordinates). s: S or T (s10.5 in the integer
+ * half of an s15.16), w: W (s.15 in the integer half); only the integer halves are used. Returns S / W as s10.5 in 17
+ * bits (sign-extended); *range: 0 in range, 2 over (or W's integer half <= 0), 1 under. */
+int32_t mrdp_n64_div(int32_t s, int32_t w, int *range);
+#endif
 
 #endif
