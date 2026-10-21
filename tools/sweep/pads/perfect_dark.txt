@@ -5,8 +5,8 @@
 # (~1620), "Carrington Institute" chosen, and the Institute's room with the terminal
 # from ~1680 on (the view stays still). The menus' 3D background (~1320) and the room
 # are drawn with texture LOD.
-# Format as in mk64.txt; as a --pad spec (fish):
-#   tools/sweep/sweep.py "roms/Perfect Dark (U) (V1.1) [!].z64" --seconds 36 --pad (string replace -r '\s*#.*' '' < tools/sweep/pads/perfect_dark.txt | string match -rv '^\s*$' | string join ,)
+# Format as in mk64.txt; run with:
+#   tools/sweep/sweep.py "roms/Perfect Dark (U) (V1.1) [!].z64" --seconds 36 --pad-file tools/sweep/pads/perfect_dark.txt
 700-703:10
 740-743:10
 780-783:10

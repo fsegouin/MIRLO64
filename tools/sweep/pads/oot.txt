@@ -9,8 +9,8 @@
 # Kokiri has his or her own guardian fairy"); the Deku Tree and the flight through the
 # forest come after field 2600. The run this was written from had extra A presses from
 # ~1650 on, so the fields given past that point are approximate.
-# Format as in mk64.txt; as a --pad spec (fish):
-#   tools/sweep/sweep.py "roms/Legend of Zelda, The - Ocarina of Time (U) (V1.2) [!].z64" --seconds 44 --pad (string replace -r '\s*#.*' '' < tools/sweep/pads/oot.txt | string match -rv '^\s*$' | string join ,)
+# Format as in mk64.txt; run with:
+#   tools/sweep/sweep.py "roms/Legend of Zelda, The - Ocarina of Time (U) (V1.2) [!].z64" --seconds 44 --pad-file tools/sweep/pads/oot.txt
 610-613:10
 680-683:10
 710-713:8000
