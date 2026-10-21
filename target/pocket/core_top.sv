@@ -239,12 +239,12 @@ module core_top (
   // bridge endianness
   assign bridge_endian_little    = 0;
 
-  // The cartridge port is the SoC's (rtl/soc/gb_cart.sv, with the macro
-  // MIRLO_GB_CART: a Game Boy cartridge). Directions are 0:IN, 1:OUT. Game Boy
+  // The cartridge port is the SoC's (rtl/soc/gb_cart.sv: a Game Boy cartridge;
+  // the macro MIRLO_NO_GB_CART leaves it out). Directions are 0:IN, 1:OUT. Game Boy
   // pins: bank3 A7-A0, bank2 A15-A8, bank1 D7-D0, bank0 PHI, /WR, /RD, /CS;
   // pin 30 is /RES, which the board holds low until cart_pin30_pwroff_reset is
   // driven high -- the pin itself is never driven, nor is pin 31 (VIN).
-  // Without the macro, and whenever the SoC has the port off, this is the
+  // With that macro, and whenever the SoC has the port off, this is the
   // template's idle state: banks 1-3 inputs, bank0 driven high, the cartridge
   // held in reset.
   wire        gb_on, gb_a_dir, gb_a_oe, gb_d_dir, gb_d_oe, gb_phi, gb_wr_n, gb_rd_n, gb_cs_n;
@@ -1025,7 +1025,7 @@ module core_top (
       .serial_rx(uart_rx),
       .serial_tx(uart_tx),
 
-      // the Game Boy cartridge slot (MIRLO_GB_CART)
+      // the Game Boy cartridge slot (none with MIRLO_NO_GB_CART)
       .gb_on(gb_on), .gb_a_dir(gb_a_dir), .gb_a_oe(gb_a_oe), .gb_a(gb_a), .gb_d_o(gb_d_o), .gb_d_dir(gb_d_dir),
       .gb_d_oe(gb_d_oe), .gb_d_i(cart_tran_bank1), .gb_phi(gb_phi), .gb_wr_n(gb_wr_n), .gb_rd_n(gb_rd_n), .gb_cs_n(gb_cs_n),
 

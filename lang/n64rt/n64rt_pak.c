@@ -37,8 +37,8 @@
  *   0xC000  the cartridge
  *
  * The cartridge in the slot is reached a byte at a time through the SoC's
- * GB_CART registers (rtl/soc/gb_cart.sv, a bitstream built with
- * MIRLO_GB_CART): what the game reads and writes at 0xC000 goes to the
+ * GB_CART registers (rtl/soc/gb_cart.sv, in every bitstream but one built
+ * with MIRLO_NO_GB_CART): what the game reads and writes at 0xC000 goes to the
  * cartridge's own bus, so its mapper, its RAM and its battery are the real
  * ones -- nothing is emulated and nothing is saved by the Pocket. The
  * cartridge is held in reset except while the game has its power on (0xB000)

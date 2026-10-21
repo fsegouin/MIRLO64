@@ -1,7 +1,8 @@
 // A Game Boy cartridge in the Pocket's cartridge slot, for the game CPU: one
 // byte read or written at a 16-bit address, as the console's bus does it. It
 // is what the N64 Transfer Pak's cartridge is when the core's setting says the
-// real one (lang/n64rt/n64rt_pak.c); with the Verilog macro MIRLO_GB_CART.
+// real one (lang/n64rt/n64rt_pak.c); left out with the Verilog macro
+// MIRLO_NO_GB_CART (rtl/soc/mirlo_mips.sv).
 //
 // The port (platform/pocket/apf_top.v; the same 32 pins as a Game Boy's):
 //   cart_tran_bank3 [7:0]  A7-A0     out while on

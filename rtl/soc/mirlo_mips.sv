@@ -99,7 +99,7 @@ module mirlo_mips #(
     output wire          cram0_ub_n, cram0_lb_n, cram1_ub_n, cram1_lb_n,
     input  wire          serial_rx,
     output wire          serial_tx,
-    // a Game Boy cartridge in the Pocket's slot (gb_cart.sv; MIRLO_GB_CART -- without it: off)
+    // a Game Boy cartridge in the Pocket's slot (gb_cart.sv; with MIRLO_NO_GB_CART: off)
     output wire          gb_on, gb_a_dir, gb_a_oe, gb_d_dir, gb_d_oe,
     output wire   [15:0] gb_a,
     output wire    [7:0] gb_d_o,
@@ -412,9 +412,20 @@ mirlo_regs regs (.clk, .rst,
     .gbc_on, .gbc_trust, .gbc_start, .gbc_we, .gbc_addr, .gbc_wdata, .gbc_busy, .gbc_rdata);
 
 // ---------------------------------------------------------------- the Game Boy cartridge slot
+// (MIRLO_NO_GB_CART: no port. The pins stay as gb_cart.sv leaves them off --
+// the banks inputs, PHI, /WR, /RD, /CS high, the cartridge held in reset --
+// and GB_CART.ID reads 0 (mirlo_regs.sv), so the runtime's Transfer Pak has
+// no cartridge in it: lang/n64rt/n64rt_pak.c.)
+`ifdef MIRLO_NO_GB_CART
+assign gbc_busy = 1'b0; assign gbc_rdata = 8'hFF;
+assign gb_on = 1'b0; assign gb_a_dir = 1'b0; assign gb_a_oe = 1'b0; assign gb_a = 16'd0;
+assign gb_d_o = 8'd0; assign gb_d_dir = 1'b0; assign gb_d_oe = 1'b0;
+assign gb_phi = 1'b1; assign gb_wr_n = 1'b1; assign gb_rd_n = 1'b1; assign gb_cs_n = 1'b1;
+`else
 gb_cart gbcart (.clk, .rst, .on(gbc_on), .trust(gbc_trust), .start(gbc_start), .we(gbc_we), .addr(gbc_addr),
     .wdata(gbc_wdata), .busy(gbc_busy), .rdata(gbc_rdata),
     .gb_on, .gb_a_dir, .gb_a_oe, .gb_a, .gb_d_o, .gb_d_dir, .gb_d_oe, .gb_d_i, .gb_phi, .gb_wr_n, .gb_rd_n, .gb_cs_n);
+`endif
 
 // ---------------------------------------------------------------- the JTAG UART
 `ifdef MIRLO_NO_JTAG_UART
