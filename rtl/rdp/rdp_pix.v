@@ -56,6 +56,7 @@ module rdp_pix (
     input  wire [15:0] prim_dz,     // SET_PRIM_DEPTH's delta
     input  wire        need_mem,    // the colour span is read (rdp_top): the memory's coverage is there
     input  wire        c8,          // the colour image is an 8-bit one (rdp_top cimg8): no depth, memory reads 0
+    input  wire        c32,         // ... a 32-bit one (rdp_top cimg32): a pixel a word of the old colour buffer
     input  wire        p_aa,        // a triangle: Z moves to the first covered sample
     input  wire [31:0] z_dx, z_dy,  // its DzDx, DzDy
     input  wire [31:0] fill,
@@ -98,6 +99,7 @@ module rdp_pix (
 
     // ---- span line buffers (512 x 32: two pixels a word), registered read
     output reg  [9:0]  lb_raddr,          // {set, word}
+    output reg  [9:0]  clb_raddr,         // the colour buffer's: a 32-bit image's {set, x[8:0]}, a 16-bit one's as lb_raddr
     input  wire [31:0] zlb_rdata,
     input  wire [31:0] clb_rdata,
     // the raw hidden-bit buffer (rdp_mem, lang/c/mrdp/mrdp.h: the N64's other two
@@ -111,6 +113,7 @@ module rdp_pix (
     output reg  [9:0]  out_x,
     output wire [15:0] out_color,      // RGBA5551, the RGB dithered (rdp_dither_add); bit 0 the coverage's top bit
     output reg  [7:0]  out_r8,         // an 8-bit image's byte: the red, not dithered (fill: the fill colour's byte)
+    output wire [26:0] out_c27,        // a 32-bit image's pixel: {R8 G8 B8 cvg3}, the RGB dithered at 8 bits
     output reg  [1:0]  out_hid,        // the coverage's two hidden bits
     output reg  [15:0] out_depth,
     output reg         out_cpass,        // write the color
@@ -866,6 +869,7 @@ module rdp_pix (
     always @(posedge clk) begin
         v9 <= v8b & ~rst & (!two_pass | ph8b); x9 <= x8b; bs9 <= bs8b;
         lb_raddr <= {bs8b, x8b[9:1]};           // line buffers: data after the next edge, captured at P10b
+        clb_raddr <= {bs8b, c32 ? x8b[8:0] : x8b[9:1]};
         hl_raddr <= {bs8b, hw8b[9:3]};          // the hidden word of the pixel's group
         hk9 <= {hw8b[2:0], x8b[0]};
         if (!ph8b) texA9 <= tex_cur;
@@ -1086,9 +1090,11 @@ module rdp_pix (
         c010 <= c0_w;
         tex10 <= tex10a; tex1_10 <= tex1_10a; shade10 <= shade10a; depth10 <= depth10a;
         zold10 <= x10a[0] ? zlb_rdata[15:0] : zlb_rdata[31:16];     // the even pixel first
-        mem10 <= un565(c8 ? 16'd0 : x10a[0] ? clb_rdata[15:0] : clb_rdata[31:16]);
-        memb10 <= x10a[0] ? clb_rdata[0] : clb_rdata[16];
-        hid10 <= hl_rdata[{hk10a, 1'b0} +: 2];
+        // (a 32-bit image: the word's R G B at eight bits, and the coverage from the alpha byte's top three bits, where
+        // a 16-bit one has its bit 0 and the hidden two; lang/c/mrdp/mrdp.c MRDP_CIMG32)
+        mem10 <= c32 ? {clb_rdata[31:8], 8'hFF} : un565(c8 ? 16'd0 : x10a[0] ? clb_rdata[15:0] : clb_rdata[31:16]);
+        memb10 <= c32 ? clb_rdata[7] : x10a[0] ? clb_rdata[0] : clb_rdata[16];
+        hid10 <= c32 ? clb_rdata[6:5] : hl_rdata[{hk10a, 1'b0} +: 2];
     end
     wire [35:0]  cm10 = (cyc == 2'd1) ? c010 : 36'd0;   // COMBINED for cycle 1
     wire [155:0] o1_w = cc_sel(1'b1, tex1_10, tex10, shade10, cm10, lf10);   // (the second cycle: TEXEL0 the next tile's sample, TEXEL1 the tile's)
@@ -1488,6 +1494,15 @@ module rdp_pix (
     rdp_dither_add dag (.c(col_t[9:5]),   .lo(col_lo[5:3]), .d(col_dg), .o(dg));
     rdp_dither_add dab (.c(col_t[4:0]),   .lo(col_lo[2:0]), .d(col_db), .o(db));
     assign out_color = { dr, dg, db, col_a };
+    // A 32-bit image keeps the eight bits (docs/cimg32.md): the same compare, and where it takes the channel up, the
+    // next multiple of 8 (255 from 248 up), else the eight bits as they were. The coverage goes whole, no hidden plane.
+    function automatic [7:0] dith8;
+        input [4:0] c, o;
+        input [2:0] lo, d;
+        dith8 = !(d < lo) ? {c, lo} : (c == 5'd31) ? 8'hFF : {o, 3'd0};
+    endfunction
+    assign out_c27 = { dith8(col_t[14:10], dr, col_lo[8:6], col_dt), dith8(col_t[9:5], dg, col_lo[5:3], col_dg),
+                       dith8(col_t[4:0], db, col_lo[2:0], col_db), col_a, out_hid };
     always @(posedge clk) begin
         out_valid <= v13b & ~rst;
         out_x <= x13b; out_set <= bs13b;
