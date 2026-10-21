@@ -1300,6 +1300,20 @@ void n64rt_si_hw_event(void)
     if (s_pif[63] & 2u) pif_challenge();             /* (the status byte keeps that bit: a challenge, not commands) */
     else t = pif_run();
     for (int i = 0; i < 16; i++) if (s_pif_w[i] != orig[i]) hw_wr(PIF_RAM + 4u * (u32)i, s_pif_w[i]);
+    /* The replies also go into the game's buffer now, through KSEG0 (the D-cache writes through: the SDRAM and a cached
+     * copy both get them); the RD64B's DMA writes the same words there later. The D-cache's lines are 32 bytes, the
+     * VR4300's 16: libultra's osInvalDCache of its 16-byte-aligned buffer, just after it starts the RD64B, leaves the other
+     * half of the first line free to be refilled while the read waits out the PIF's time (Ocarina of Time: osSendMesg on
+     * __osSiAccessQueue, 16 bytes below __osContPifRam), and that line, refilled with the request, was what the game read:
+     * every button held. The buffer is SI_DRAM_ADDR when an RD64B waits for this run (DMA busy), else the WR64B that made
+     * it counted the address up past the block. (Not for the CIC-6105 challenge: no DMA of the game's goes with it.) */
+    if (!(s_pif[63] & 2u)) {
+        const u32 da = hw_rd(SI_DRAM_ADDR) & 0x00FFFFF8u, buf = (hw_rd(SI_STATUS) & 1u) ? da : da - 64u;
+        if (buf >= 0x400u && buf + 64u <= n64rt_game->mem_size) {
+            volatile u32 *g = (volatile u32 *)K0P(buf);
+            for (int i = 0; i < 16; i++) g[i] = s_pif_w[i];
+        }
+    }
     monitor_sidone_write(t < 0x3FFFFu ? t : 0x3FFFFu);
 }
 static void vi_hw_note_origin(void) { if (s_vi_hw) fb_note(hw_rd(0x04400004u)); }
