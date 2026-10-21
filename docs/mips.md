@@ -896,6 +896,7 @@ C library (`make -C lang/mips -f lib.mk VARIANT=game`) and are run as
 | `tlbram_test`, `tlbmon_test`, `tlbgame_test`, `tlbpg_test` | The translation tables; the game's TLB instructions; TLB exceptions delivered to the game; the fetch page registers |
 | `mi_test`, `vi_test`, `ai_test`, `si_test`, `pi2_test` | Each RCP block: registers, interrupts, DMA, and that the game's accesses enter the monitor only where they should |
 | `rcpcpu_test` | The CPU's side of the SP and DPC registers: the semaphore, the DMA queue, DPC writes |
+| `dma_coh_test` | The D-cache against the PI's engine, the RSP's DMA and the SI's RD64B writing a buffer whose edge shares a 32-byte line with data loaded during the transfer |
 | `ram8_test` | Every block above the RDRAM's first 4 MiB; `sim/mips_soc/ram8_check.sh` runs it and checks the audio and the picture |
 | `hires_test`, `vwin_test`, `viaa_test` | The scan-out's sizes and windows, and the VI's filters (`sim/vi_filter/viaa_check.py` compares the frame) |
 | `rsp_replay` | One recorded RSP task on the whole SoC, timed |
