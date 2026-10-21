@@ -323,20 +323,23 @@ module rdp_pix (
     endfunction
 
     // ======================================================================
-    // P1: normalise W, table lookup
+    // P1: normalise W, the reciprocal's table
     // ======================================================================
-    wire [31:0] wpos = ($signed(w0r) <= 0) ? 32'd1 : w0r;
-    reg  [4:0]  sh_c;
+    // The console's divide (lang/c/mrdp/mrdp.c n64_div): the 16-bit integer halves of S, T (s10.5) and W (s.15). W's
+    // leading zeros, up to 14, are shifted out of its low 15 bits; its next 6 bits pick a point of the reciprocal and a
+    // slope, the 8 after them step along it (rdp_div_rom: the console's two tables)
+    wire [14:0] wi0 = w0r[30:16];
+    reg  [3:0]  sh_c;
     integer k;
     always @(*) begin
-        sh_c = 5'd30;
-        for (k = 0; k <= 30; k = k + 1)
-            if (wpos[k]) sh_c = 5'd30 - k[4:0];
+        sh_c = 4'd14;
+        for (k = 0; k <= 14; k = k + 1)
+            if (wi0[k]) sh_c = 4'd14 - k[3:0];
     end
-    wire [31:0] wn = wpos << sh_c;
-    wire [16:0] rom_p;
-    wire [10:0] rom_d;
-    mrdp_rcp_rom rom (.idx(wn[29:24]), .p(rom_p), .d(rom_d));
+    wire [14:0] wn = wi0 << sh_c;
+    wire [14:0] dv_pt;
+    wire [9:0]  dv_sl;
+    rdp_div_rom drom (.idx(wn[13:8]), .point(dv_pt), .slope(dv_sl));
 
     // the pass of the pixel in each stage (0 the tile's, 1 the next tile's: two_pass) and the tile fields the stage
     // takes, registered with it
@@ -359,102 +362,118 @@ module rdp_pix (
     wire       tlut_on = other_h[15];
     reg        v1;
     reg [9:0]  x1;
-    reg [16:0] p1;
-    reg [10:0] d1;
-    reg [8:0]  f1;
-    reg [4:0]  sh1;
+    reg        wle1, wle2, wle3;           // W's integer half is zero or negative: out of range, over (n64_div)
+    reg [14:0] pt1;
+    reg [9:0]  sl1;
+    reg [7:0]  f1;
+    reg [3:0]  sh1;
     reg [31:0] s1r, t1r;
     reg [35:0] shade1;
     reg [17:0] depth1;
     always @(posedge clk) begin
         v1 <= v0 & ~rst; x1 <= x0; bs1 <= bs0; ph1 <= ph0;
-        p1 <= rom_p; d1 <= rom_d; f1 <= wn[23:15]; sh1 <= sh_c;
+        pt1 <= dv_pt; sl1 <= dv_sl; f1 <= wn[7:0]; sh1 <= sh_c;
         s1r <= s0r; t1r <= t0r; shade1 <= shade0;
+        wle1 <= w0r[31] || w0r[30:16] == 15'd0;
         depth1 <= (z_src_p || !p_zbuf) ? {prim_z, 2'b00} : dz;
     end
 
     // ======================================================================
-    // P2: r = P - (D * frac >> 9); S, T clamped to the 27-bit multiplier input
+    // P2: the reciprocal, 15 bits: the point plus the slope's step, ((slope - 1023) * 4 frac) >> 10 (a negative step)
     // ======================================================================
-    // The products S * r and T * r go down by 27 - sh places (W is 2.30, lang/c/mrdp/mrdp_setup.h mrdp_slope30: 41 - 14;
-    // none above sh 27). r is taken up by the low part of that here, sh mod 8 places, so that what is left for the two
-    // 45-bit products is one of four shifts, 27, 19, 11 or 3 (sq: sh / 8) -- sh 28..30: up 3 and down 3
-    wire [19:0] dfrac = d1 * f1;
-    wire [16:0] r1 = p1 - {6'd0, dfrac[19:9]};
-    wire        sh_top = sh1 > 5'd27;
-    wire [2:0]  sj1 = sh_top ? 3'd3 : sh1[2:0];
-    function automatic [26:0] sat27;
-        input [31:0] v;
-        begin
-            if ($signed(v) > 32'sd67108863) sat27 = 27'h3FFFFFF;
-            else if ($signed(v) < -32'sd67108864) sat27 = 27'h4000000;
-            else sat27 = v[26:0];
-        end
+    // It is taken up (sh + 2) mod 3 places, so that the product's way back to s10.5, 13 - sh places, becomes a multiple of
+    // 3 (R, P4: 0 to 15); sh 14 is the product taken up 1 (n64_div's prod * 2): R 0 as well. (17 bits at most, 0x4000
+    // taken up 2: the products stay 18 x 18, two to a DSP block)
+    wire signed [10:0] dsl = $signed({1'b0, sl1}) - 11'sd1023;
+    wire signed [21:0] dst = dsl * $signed({1'b0, f1, 2'b00});
+    wire [14:0] rcp1 = pt1 + {{3{dst[21]}}, dst[21:10]};
+    function automatic [1:0] tk3;           // (sh + 2) mod 3
+        input [3:0] sh;
+        case (sh)
+            4'd1, 4'd4, 4'd7, 4'd10, 4'd13: tk3 = 2'd0;
+            4'd2, 4'd5, 4'd8, 4'd11, 4'd14: tk3 = 2'd1;
+            default:                        tk3 = 2'd2;
+        endcase
     endfunction
+    wire [1:0]  rm1 = tk3(sh1);
     reg        v2;
     reg [9:0]  x2;
-    reg [23:0] r2;
-    reg [1:0]  sq2;
-    reg [26:0] sc2, tc2;
-    reg [15:0] s2r, t2r;                 // S and T as the affine and the direct paths take them (s10.5 in 16 bits), decided here: only the perspective path wants more
+    reg [16:0] r2;
+    reg [3:0]  sh2;
+    reg [15:0] s2r, t2r;                 // S and T in 16 bits: the integer halves the divide takes, or a rectangle's s10.5
     reg [35:0] shade2;
     reg [17:0] depth2;
     always @(posedge clk) begin
-        v2 <= v1 & ~rst; x2 <= x1; bs2 <= bs1; ph2 <= ph1;
-        r2 <= {7'd0, r1} << sj1;
-        sq2 <= sh_top ? 2'd3 : sh1[4:3];
-        sc2 <= sat27(s1r); tc2 <= sat27(t1r);
-        s2r <= p_direct ? s1r[15:0] : sat16_32($signed(s1r) >>> 11);
-        t2r <= p_direct ? t1r[15:0] : sat16_32($signed(t1r) >>> 11);
+        v2 <= v1 & ~rst; x2 <= x1; bs2 <= bs1; ph2 <= ph1; wle2 <= wle1;
+        r2 <= {2'd0, rcp1} << rm1;
+        sh2 <= sh1;
+        s2r <= p_direct ? s1r[15:0] : s1r[31:16];
+        t2r <= p_direct ? t1r[15:0] : t1r[31:16];
         shade2 <= shade1; depth2 <= depth1;
     end
 
     // ======================================================================
     // P3: S * r, T * r
     // ======================================================================
+    // (and for P4: R / 3, the take-up, and the product's bits n64_div's range takes -- its bits 29 down to the result's
+    // top, here 29 + m down to 16 + R -- as a mask of bits 31:16)
+    wire [1:0]  rm2 = tk3(sh2);
+    wire [4:0]  rr2 = 5'd13 - {1'b0, sh2} + {3'd0, rm2};
+    reg  [15:0] rk2;
+    integer kk;
+    always @(*) for (kk = 0; kk < 16; kk = kk + 1) rk2[kk] = kk >= rr2 && kk <= 13 + rm2;
     reg        v3;
     reg [9:0]  x3;
-    reg signed [51:0] ps3, pt3;
-    reg [1:0]  sq3;
+    reg signed [32:0] ps3, pt3;
+    reg [2:0]  rq3;
+    reg [1:0]  rm3;
+    reg [15:0] rk3;
     reg [15:0] s3r, t3r;
     reg [35:0] shade3;
     reg [17:0] depth3;
     always @(posedge clk) begin
-        v3 <= v2 & ~rst; x3 <= x2; bs3 <= bs2; ph3 <= ph2;
-        ps3 <= $signed(sc2) * $signed({1'b0, r2});
-        pt3 <= $signed(tc2) * $signed({1'b0, r2});
-        sq3 <= sq2;
+        v3 <= v2 & ~rst; x3 <= x2; bs3 <= bs2; ph3 <= ph2; wle3 <= wle2;
+        ps3 <= $signed(s2r) * $signed({1'b0, r2});
+        pt3 <= $signed(t2r) * $signed({1'b0, r2});
+        rq3 <= rr2 == 5'd15 ? 3'd5 : rr2 == 5'd12 ? 3'd4 : rr2 == 5'd9 ? 3'd3 : rr2 == 5'd6 ? 3'd2 : rr2 == 5'd3 ? 3'd1 : 3'd0;
+        rm3 <= rm2; rk3 <= rk2;
         s3r <= s2r; t3r <= t2r; shade3 <= shade2; depth3 <= depth2;
     end
 
     // ======================================================================
     // P4: s10.5 coordinates (perspective, affine, or direct)
     // ======================================================================
-    // a product down by 27, 19, 11 or 3 places (q: 0..3), saturated to 16 bits: the 16 bits from there, when all above
-    // them are the sign
-    function automatic [15:0] sat16_q;
-        input signed [51:0] v;
-        input [1:0] q;
-        reg [15:0] lo;
-        reg        in0, in1, in2, in3, ok;
+    // the product down by R places, 17 bits (s11.5), and its range: out (2 over, 1 under) when the masked bits are not all
+    // one value -- under when the top one, the product's bit 29, is set
+    function automatic [18:0] dv17;          // {range 2, value 17}
+        input signed [32:0] p;
+        input [2:0]  q;
+        input [1:0]  m;
+        input [15:0] mk;
+        reg [16:0] v;
+        reg        mix, top;
         begin
-            in0 = v[51:42] == {10{v[51]}};
-            in1 = in0 && v[41:34] == {8{v[51]}};
-            in2 = in1 && v[33:26] == {8{v[51]}};
-            in3 = in2 && v[25:18] == {8{v[51]}};
             case (q)
-                2'd0:    begin lo = v[42:27]; ok = in0; end
-                2'd1:    begin lo = v[34:19]; ok = in1; end
-                2'd2:    begin lo = v[26:11]; ok = in2; end
-                default: begin lo = v[18:3];  ok = in3; end
+                3'd0:    v = p[16:0];
+                3'd1:    v = p[19:3];
+                3'd2:    v = p[22:6];
+                3'd3:    v = p[25:9];
+                3'd4:    v = p[28:12];
+                default: v = p[31:15];
             endcase
-            sat16_q = ok ? lo : v[51] ? 16'h8000 : 16'h7FFF;
+            mix = (|(p[31:16] & mk)) && !(&(p[31:16] | ~mk));
+            top = m == 2'd0 ? p[29] : m == 2'd1 ? p[30] : p[31];
+            dv17 = {mix && !top, mix && top, v};
         end
     endfunction
-    function automatic [15:0] sat16_32;
-        input signed [31:0] v;
-        sat16_32 = (v > 32'sd32767) ? 16'h7FFF : ((v < -32'sd32768) ? 16'h8000 : v[15:0]);
+    // S / W for the texel (n64_persp): the 17 bits saturated to 16, out of range to the end it went past (a primitive
+    // without texture coefficients: 0, as the model takes it, not the divide's 0 / 0)
+    function automatic [15:0] tx16;
+        input [18:0] d;
+        input        wle;
+        tx16 = (wle || d[18]) ? 16'h7FFF : d[17] ? 16'h8000 : (d[16] != d[15]) ? (d[16] ? 16'h8000 : 16'h7FFF) : d[15:0];
     endfunction
+    wire [18:0] dvs = dv17(ps3, rq3, rm3, rk3), dvt = dv17(pt3, rq3, rm3, rk3);
     reg        v4;
     reg [9:0]  x4;
     reg [15:0] s4, t4;
@@ -468,7 +487,7 @@ module rdp_pix (
         if (p_direct || !persp) begin
             s4 <= s3r; t4 <= t3r;
         end else begin
-            s4 <= sat16_q(ps3, sq3); t4 <= sat16_q(pt3, sq3);
+            s4 <= tx16(dvs, wle3 && p_tex); t4 <= tx16(dvt, wle3 && p_tex);
         end
         shade4 <= shade3; depth4 <= depth3;
     end
@@ -1404,4 +1423,86 @@ module rdp_dither_add (
     output wire [4:0] o
 );
     assign o = (d < lo && c != 5'd31) ? c + 5'd1 : c;
+endmodule
+
+// The console's reciprocal for the perspective divide (lang/c/mrdp/mrdp.c n64_div, its two 64-entry tables): the point
+// (15 bits) and the slope's low 10 bits (its upper ones are all ones). In logic, a LUT for each bit of the 25 (as a
+// ROM block its read is on P2's path, and it takes an M10K).
+(* altera_attribute = "-name AUTO_ROM_RECOGNITION OFF" *)
+module rdp_div_rom (
+    input  wire [5:0]  idx,
+    output wire [14:0] point,
+    output wire [9:0]  slope
+);
+    (* romstyle = "logic" *) reg [24:0] e;
+    always @(*) begin
+        case (idx)
+            6'd0: e = {15'h4000, 10'h303};
+            6'd1: e = {15'h3f04, 10'h30b};
+            6'd2: e = {15'h3e10, 10'h311};
+            6'd3: e = {15'h3d22, 10'h319};
+            6'd4: e = {15'h3c3c, 10'h320};
+            6'd5: e = {15'h3b5d, 10'h325};
+            6'd6: e = {15'h3a83, 10'h32d};
+            6'd7: e = {15'h39b1, 10'h332};
+            6'd8: e = {15'h38e4, 10'h337};
+            6'd9: e = {15'h381c, 10'h33d};
+            6'd10: e = {15'h375a, 10'h342};
+            6'd11: e = {15'h369d, 10'h347};
+            6'd12: e = {15'h35e5, 10'h34c};
+            6'd13: e = {15'h3532, 10'h350};
+            6'd14: e = {15'h3483, 10'h355};
+            6'd15: e = {15'h33d9, 10'h359};
+            6'd16: e = {15'h3333, 10'h35d};
+            6'd17: e = {15'h3291, 10'h362};
+            6'd18: e = {15'h31f4, 10'h364};
+            6'd19: e = {15'h3159, 10'h369};
+            6'd20: e = {15'h30c3, 10'h36c};
+            6'd21: e = {15'h3030, 10'h370};
+            6'd22: e = {15'h2fa1, 10'h373};
+            6'd23: e = {15'h2f15, 10'h376};
+            6'd24: e = {15'h2e8c, 10'h379};
+            6'd25: e = {15'h2e06, 10'h37c};
+            6'd26: e = {15'h2d83, 10'h37f};
+            6'd27: e = {15'h2d03, 10'h382};
+            6'd28: e = {15'h2c86, 10'h384};
+            6'd29: e = {15'h2c0b, 10'h387};
+            6'd30: e = {15'h2b93, 10'h38a};
+            6'd31: e = {15'h2b1e, 10'h38c};
+            6'd32: e = {15'h2aab, 10'h38e};
+            6'd33: e = {15'h2a3a, 10'h391};
+            6'd34: e = {15'h29cc, 10'h393};
+            6'd35: e = {15'h2960, 10'h395};
+            6'd36: e = {15'h28f6, 10'h397};
+            6'd37: e = {15'h288e, 10'h399};
+            6'd38: e = {15'h2828, 10'h39b};
+            6'd39: e = {15'h27c4, 10'h39d};
+            6'd40: e = {15'h2762, 10'h39f};
+            6'd41: e = {15'h2702, 10'h3a1};
+            6'd42: e = {15'h26a4, 10'h3a3};
+            6'd43: e = {15'h2648, 10'h3a4};
+            6'd44: e = {15'h25ed, 10'h3a6};
+            6'd45: e = {15'h2594, 10'h3a8};
+            6'd46: e = {15'h253d, 10'h3a9};
+            6'd47: e = {15'h24e7, 10'h3aa};
+            6'd48: e = {15'h2492, 10'h3ac};
+            6'd49: e = {15'h243f, 10'h3ae};
+            6'd50: e = {15'h23ee, 10'h3af};
+            6'd51: e = {15'h239e, 10'h3b0};
+            6'd52: e = {15'h234f, 10'h3b2};
+            6'd53: e = {15'h2302, 10'h3b3};
+            6'd54: e = {15'h22b6, 10'h3b5};
+            6'd55: e = {15'h226c, 10'h3b5};
+            6'd56: e = {15'h2222, 10'h3b7};
+            6'd57: e = {15'h21da, 10'h3b8};
+            6'd58: e = {15'h2193, 10'h3b9};
+            6'd59: e = {15'h214d, 10'h3ba};
+            6'd60: e = {15'h2108, 10'h3bc};
+            6'd61: e = {15'h20c5, 10'h3bc};
+            6'd62: e = {15'h2082, 10'h3be};
+            default: e = {15'h2041, 10'h3be};
+        endcase
+    end
+    assign point = e[24:10];
+    assign slope = e[9:0];
 endmodule
