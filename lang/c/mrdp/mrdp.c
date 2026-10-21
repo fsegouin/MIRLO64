@@ -97,6 +97,65 @@ static inline int32_t s105_noperp(int32_t s)
     return v > 32767 ? 32767 : v < -32768 ? -32768 : v;
 }
 
+#if defined(MRDP_EXACT_DIV) && !defined(MRDP_CVG)
+#error "MRDP_EXACT_DIV is the N64's pixel pipeline's: build it with MRDP_N64 (and without MRDP_NO_BLEND)"
+#endif
+#ifdef MRDP_EXACT_DIV
+/* ---- the console's perspective divide (MRDP_EXACT_DIV; docs/rdp.md, Coordinates) ----
+ * Only the 16-bit integer halves of S (or T, s10.5) and W (s.15) enter it. W's leading zeros among its low 15 bits (up to
+ * 14) normalise it; the next 6 bits pick a point of the reciprocal and the 8 after them step along the slope there: a
+ * 15-bit reciprocal. S times it, shifted back by the normalisation, is S / W in s10.5, 17 bits kept. The product's bits
+ * above those, unless all copies of its sign, put the result out of range (range 2 over, 1 under), and so does a W whose
+ * integer half is zero or negative (over), whatever S is. The tables are the console's: with them the texel coordinates
+ * match a captured frame's to the subtexel, where the model's own reciprocal (mrdp_rcp, more bits of S and W) was off by
+ * up to 69 subtexels at a floor's far end. */
+static const uint16_t s_div_point[64] = {
+    0x4000, 0x3f04, 0x3e10, 0x3d22, 0x3c3c, 0x3b5d, 0x3a83, 0x39b1,
+    0x38e4, 0x381c, 0x375a, 0x369d, 0x35e5, 0x3532, 0x3483, 0x33d9,
+    0x3333, 0x3291, 0x31f4, 0x3159, 0x30c3, 0x3030, 0x2fa1, 0x2f15,
+    0x2e8c, 0x2e06, 0x2d83, 0x2d03, 0x2c86, 0x2c0b, 0x2b93, 0x2b1e,
+    0x2aab, 0x2a3a, 0x29cc, 0x2960, 0x28f6, 0x288e, 0x2828, 0x27c4,
+    0x2762, 0x2702, 0x26a4, 0x2648, 0x25ed, 0x2594, 0x253d, 0x24e7,
+    0x2492, 0x243f, 0x23ee, 0x239e, 0x234f, 0x2302, 0x22b6, 0x226c,
+    0x2222, 0x21da, 0x2193, 0x214d, 0x2108, 0x20c5, 0x2082, 0x2041,
+};
+static const uint16_t s_div_slope[64] = {
+    0x0f03, 0x0f0b, 0x0f11, 0x0f19, 0x0f20, 0x0f25, 0x0f2d, 0x0f32,
+    0x0f37, 0x0f3d, 0x0f42, 0x0f47, 0x0f4c, 0x0f50, 0x0f55, 0x0f59,
+    0x0f5d, 0x0f62, 0x0f64, 0x0f69, 0x0f6c, 0x0f70, 0x0f73, 0x0f76,
+    0x0f79, 0x0f7c, 0x0f7f, 0x0f82, 0x0f84, 0x0f87, 0x0f8a, 0x0f8c,
+    0x0f8e, 0x0f91, 0x0f93, 0x0f95, 0x0f97, 0x0f99, 0x0f9b, 0x0f9d,
+    0x0f9f, 0x0fa1, 0x0fa3, 0x0fa4, 0x0fa6, 0x0fa8, 0x0fa9, 0x0faa,
+    0x0fac, 0x0fae, 0x0faf, 0x0fb0, 0x0fb2, 0x0fb3, 0x0fb5, 0x0fb5,
+    0x0fb7, 0x0fb8, 0x0fb9, 0x0fba, 0x0fbc, 0x0fbc, 0x0fbe, 0x0fbe,
+};
+int32_t mrdp_n64_div(int32_t s, int32_t w, int *range)
+{
+    const int32_t s16 = (int16_t)((uint32_t)s >> 16), w16 = (int16_t)((uint32_t)w >> 16);
+    const unsigned wi = (unsigned)w16 & 0x7FFFu;
+    int shift = 14;
+    for (int b = 14; b >= 0; b--) if ((wi >> b) & 1u) { shift = 14 - b; break; }
+    const unsigned norm = (wi << shift) & 0x3FFFu, idx = norm >> 8, frac = (norm & 0xFFu) << 2;
+    /* (the slope is stored as the 10 low bits of a negative number: | ~0x3FF, + 1 makes it the step's negation) */
+    const int rcp = ((((int)(s_div_slope[idx] | ~0x3FFu) + 1) * (int)frac >> 10) + (int)s_div_point[idx]) & 0x7FFF;
+    const int32_t prod = s16 * rcp;
+    const int32_t mask = ((1 << 30) - 1) & -((1 << 29) >> shift), hi = prod & mask;
+    *range = (hi != mask && hi != 0) ? ((prod & (1 << 29)) ? 1 : 2) : 0;
+    if (w16 <= 0) *range = 2;
+    const int32_t v = (shift != 14 ? prod >> (13 - shift) : prod * 2) & 0x1FFFF;
+    return (v & 0x10000) ? v - 0x20000 : v;
+}
+/* S / W for the pixel's texel: the 17 bits saturated to 16, an out-of-range one to the end it went past (over 0x7FFF,
+ * under -0x8000), as the texture unit's coordinate is 16 bits */
+static int32_t n64_persp(int32_t s, int32_t w)
+{
+    int range;
+    const int32_t v = mrdp_n64_div(s, w, &range);
+    if (range) return range == 2 ? 32767 : -32768;
+    return v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+}
+#endif
+
 /* ---- init / state ------------------------------------------------------- */
 
 void mrdp_init(mrdp_t *r, void *ctx, mrdp_rd16_t rd16, mrdp_wr16_t wr16)
@@ -850,7 +909,11 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
         int32_t s = 0, t = 0;
         if (!pr->tex) { }
         else if (pr->texrect) { s = (int16_t)at[AS]; t = (int16_t)at[AT]; }
+#ifdef MRDP_EXACT_DIV
+        else if (h & MRDP_H_PERSP) { s = n64_persp(at[AS], at[AW]); t = n64_persp(at[AT], at[AW]); }
+#else
         else if (h & MRDP_H_PERSP) { s = mrdp_persp(at[AS] >> 4, (uint32_t)at[AW]); t = mrdp_persp(at[AT] >> 4, (uint32_t)at[AW]); }
+#endif
         else { s = s105_noperp(at[AS] >> 5); t = s105_noperp(at[AT] >> 5); }
         in.tex = texture_pass(r, pr->tile, s, t, 0, s_no_texel);
         /* TEXEL1 in the first cycle of a 2-cycle pixel: the next tile (tile + 1) at the same S, T -- the N64's
