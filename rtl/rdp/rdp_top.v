@@ -229,10 +229,10 @@ module rdp_top (
     // triangle's own S/T adders -- and pass s = cur[4] >>> shS, t = cur[5] >>> 5
     reg  [2:0]  shS;
     // a triangle's S and T are the N64's -- s10.5 in the integer half, against
-    // a W of s.15 -- taken to the pipeline's units (lang/c/mrdp/mrdp.c draw_pixel)
-    wire [4:0]  shN = other_h[19] ? 5'd4 : 5'd5;
-    wire [31:0] pr_s = p_direct ? asr(cur[4], {2'b0, shS}) : asr(cur[4], shN);
-    wire [31:0] pr_t = p_direct ? asr(cur[5], 5'd5) : asr(cur[5], shN);
+    // a W of s.15 -- and go to the pipeline as they are: its divide, and the
+    // affine path, take the integer halves (lang/c/mrdp/mrdp.c draw_pixel_cvg)
+    wire [31:0] pr_s = p_direct ? asr(cur[4], {2'b0, shS}) : cur[4];
+    wire [31:0] pr_t = p_direct ? asr(cur[5], 5'd5) : cur[5];
     // The drawing tile's fields, registered: indexing tile[p_tile] straight
     // into the pixel pipe was the worst path of the first fit (-4 ns). p_tile
     // and the tiles change only between primitives, many cycles before the
