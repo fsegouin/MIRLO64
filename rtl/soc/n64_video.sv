@@ -151,7 +151,10 @@ wire  [9:0] SHORT_PX    = pal_v ? SHORT_PX_P : SHORT_PX_N;
 wire  [9:0] VSCAN       = wv_v ? (pal_v ? 10'd625 : 10'd527) : pal_v ? VSCAN_P : VSCAN_N;
 wire  [9:0] VRES        = wv_v ? 10'd480 : 10'd240;
 wire  [9:0] SHORT_S     = wv_v ? 2 * SHORT_V : SHORT_V;
-wire  [9:0] SHORT_END   = SHORT_S + (wv_v ? 10'd2 : 10'd1) * (pal_v ? 10'(SHORT_LINES_P) : 10'(SHORT_LINES_N)) - 10'd1;
+// (four constants: as a product of the two selects it took a DSP block)
+localparam logic [9:0] SHORT_END_N = SHORT_V + 10'(SHORT_LINES_N) - 10'd1, SHORT_END_P = SHORT_V + 10'(SHORT_LINES_P) - 10'd1;
+localparam logic [9:0] SHORT_END_WN = 2 * SHORT_V + 10'(2 * SHORT_LINES_N) - 10'd1, SHORT_END_WP = 2 * SHORT_V + 10'(2 * SHORT_LINES_P) - 10'd1;
+wire  [9:0] SHORT_END   = wv_v ? (pal_v ? SHORT_END_WP : SHORT_END_WN) : (pal_v ? SHORT_END_P : SHORT_END_N);
 logic       hactive, vactive, hsync, vsync;
 logic       ann;
 logic       wvf_v1, wvf_v2;         // (wv_f, two flip-flops)
