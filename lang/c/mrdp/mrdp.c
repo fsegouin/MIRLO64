@@ -402,6 +402,9 @@ typedef struct {
     int cm9[4];                    /* COMBINED (the first cycle's result): r, g, b, a as the 9 raw bits (below) */
     int sh9[4];                    /* SHADE: r, g, b, a saturated to a byte, 0..255 (below; 9 bits wide as the RTL's) */
 #endif
+#ifdef MRDP_LOD
+    int lodf;                      /* LOD_FRACTION: the pixel's, 9 bits (mrdp_lod; read as a signed 9-bit, as K5 is) */
+#endif
 } cc_in_t;
 #define CC_TEX1(in) ((in)->tex1)
 #ifdef MRDP_CVG
@@ -467,6 +470,9 @@ static int cc_rgb_c(const mrdp_t *r, const cc_in_t *in, unsigned sel, int ch)
 #ifdef MRDP_N64
     case 15: return r->k5;       /* (a signed 9-bit: combine_raw) */
 #endif
+#ifdef MRDP_LOD
+    case 13: return in->lodf;    /* (a signed 9-bit: combine_raw) */
+#endif
     default: return 0;           /* 6 key scale, 13 LOD fraction, 16+ (MRDP: 15, K5, too) */
     }
 }
@@ -496,6 +502,9 @@ static int cc_alpha_c(const mrdp_t *r, const cc_in_t *in, unsigned sel)
     case 4: return CC_SH(in, 3);
     case 5: return r->env.a;
     case 6: return r->prim_lod_frac;
+#ifdef MRDP_LOD
+    case 0: return in->lodf;     /* (a signed 9-bit: combine_raw) */
+#endif
     default: return 0;           /* 0 LOD fraction, 7 zero */
     }
 }
@@ -574,13 +583,22 @@ static cc_out_t combine_raw(const mrdp_t *r, const cc_in_t *in, int cyc)
         if (sa_r == 0) a = cc_ext9(a);
         if (sb_r == 0 || sb_r == 7) b = cc_ext9(b);                       /* (7: K4) */
         if (mul_r == 0 || mul_r == 7 || mul_r == 15) c = cc_sgn9(c);      /* (15: K5) */
+#ifdef MRDP_LOD
+        if (mul_r == 13) c = cc_sgn9(c);                                  /* the LOD fraction: sharpen's is negative */
+#endif
         o.v[ch] = cc_eval(a, b, c, cc_rgb_d(r, in, add_r, ch));
     }
     {
         int a = cc_alpha_abd(r, in, sa_a), b = cc_alpha_abd(r, in, sb_a);
         if (sa_a == 0) a = cc_ext9(a);
         if (sb_a == 0) b = cc_ext9(b);
+#ifdef MRDP_LOD
+        int c = cc_alpha_c(r, in, mul_a);
+        if (mul_a == 0) c = cc_sgn9(c);                                   /* the LOD fraction, as in the colour */
+        o.v[3] = cc_eval(a, b, c, cc_alpha_abd(r, in, add_a));
+#else
         o.v[3] = cc_eval(a, b, cc_alpha_c(r, in, mul_a), cc_alpha_abd(r, in, add_a));
+#endif
     }
 #else
     for (int ch = 0; ch < 3; ch++)
@@ -732,10 +750,182 @@ typedef struct {
     unsigned dz;                   /* MRDP_N64: the primitive's depth step (a decal's tolerance; the coverage's dz) */
     int32_t dzdy;                  /* MRDP_CVG: the triangle's DzDy (the Z offset to the first covered sample) */
     int fillq;                     /* a fill rectangle (fill mode): the hidden bits by 4-pixel quads */
+#ifdef MRDP_LOD
+    unsigned level;                /* the triangle command's level field: the primitive's last level (a texture rectangle: 0) */
+    int32_t ddx[3], ddy[3];        /* S, T, W: to the next pixel of the N64's walk (its DaDx, negated for a right-major
+                                      triangle, which the N64 walks right to left) and to the next line (DaDy, as kept) */
+    int32_t rnx[2], rny[2];        /* a texture rectangle's S, T (s10.5) at the next pixel and on the next line: set per pixel */
+#endif
 } prim_t;
 
 /* attribute order in the iterators */
 enum { AR, AG, AB, AA, AS, AT, AW, AZ, NATTR };
+
+#ifdef MRDP_LOD
+#ifndef MRDP_CVG
+#error "MRDP_LOD is the N64's pixel pipeline's: build it with MRDP_N64 (and without MRDP_NO_BLEND)"
+#endif
+/* ---- texture level of detail (MRDP_LOD; docs/lod.md) ----------------------
+ * The N64's mipmapping, in a 2-cycle primitive. Per pixel, S and T are taken
+ * through the perspective divide at three points: the pixel, the next pixel of
+ * the N64's walk (DaDx; a right-major triangle is walked right to left, so its
+ * next pixel is x - 1) and the next line (DaDy). The LOD is the largest of the
+ * four coordinate steps, |dS| and |dT| in each direction, in texels as u10.5
+ * (32 = one texel a pixel). Its top bit gives the level (level k: a step of
+ * 2^k to 2^(k+1) texels), clamped to the primitive's level count; the 8 bits
+ * under the top bit are the LOD fraction, the combiner's blend between the
+ * level and the next. A step under one texel is a magnification: level 0, and a
+ * fraction of 0 (or, with sharpen or detail, the step itself, no less than the
+ * minimum level). TEXEL0 samples the primitive's tile plus the level, TEXEL1
+ * the tile after it; detail mode moves both a tile on (the primitive's tile is
+ * the detail texture, magnified pixels blend it in).
+ *
+ * The choices the public descriptions leave open, each made in one place here
+ * (docs/lod.md, "Choices"), so they can be changed when the RTL is compared
+ * with captured frames: */
+/* DaDy of S, T and W as the LOD steps them: the top 17 bits. The N64 keeps no
+ * more of them (it uses them for nothing else), and the RTL needs no more. */
+#define LOD_DY_MASK   (~0x7FFF)
+/* A negative coordinate step's magnitude is its ones' complement, |d| - 1:
+ * the N64's inverter has no increment after it. 0 takes |d|. */
+#define LOD_ONES_ABS  1
+/* The fraction is computed whenever the combiner reads LOD_FRACTION, with or
+ * without TEX_LOD, as the N64 does (TEX_LOD only moves the tiles). 0: only
+ * with TEX_LOD. */
+#define LOD_FRAC_USED 1
+
+#ifndef MRDP_EXACT_DIV
+/* S (or T) at one of the LOD's three points with the perspective divide: the
+ * model's own divide (mrdp_persp), not saturated to 16 bits but flagged
+ * outside the 17 bits (s11.5) the N64's divide keeps for the LOD. A W whose
+ * integer half is zero or negative is out of range too, as the N64's divide
+ * reports it whatever S is. */
+static int32_t lod_persp(int32_t s, uint32_t w, int *oob)
+{
+    int sh;
+    uint32_t rc = mrdp_rcp(w, &sh);
+    if ((int32_t)w < 0x10000) *oob = 1;
+    if (s > (1 << 26) - 1) s = (1 << 26) - 1;       /* (the multiplier's 27-bit input, as mrdp_persp) */
+    if (s < -(1 << 26)) s = -(1 << 26);
+    int64_t p = (int64_t)s * (int64_t)rc;
+    int k = 27 - sh;
+    int64_t v = k >= 0 ? p >> k : p * ((int64_t)1 << -k);
+    if (v < -65536 || v > 65535) *oob = 1;
+    return (int32_t)v;
+}
+#endif
+
+/* the larger of a point's two coordinate steps from the pixel, and prev: the
+ * LOD so far (15 bits; bit 14 is sticky for any step of 512 texels or more) */
+static unsigned lod_dist(int32_t s0, int32_t s1, int32_t t0, int32_t t1, unsigned prev)
+{
+    int32_t ds = s1 - s0, dt = t1 - t0;              /* 18 bits signed */
+    unsigned ms = ds < 0 ? (LOD_ONES_ABS ? (unsigned)~ds : (unsigned)-ds) : (unsigned)ds;
+    unsigned mt = dt < 0 ? (LOD_ONES_ABS ? (unsigned)~dt : (unsigned)-dt) : (unsigned)dt;
+    unsigned m = ms > mt ? ms : mt;
+    if (prev > m) m = prev;
+    return (m & 0x7FFFu) | ((m & 0x1C000u) ? 0x4000u : 0u);
+}
+
+/* the place of the highest set bit of 8 bits (0 for 0 and 1): the level */
+static inline unsigned lod_log2(unsigned v)
+{
+    unsigned e = 0;
+    while (v > 1) { v >>= 1; e++; }
+    return e;
+}
+
+mrdp_lod_t mrdp_lod(uint32_t h, unsigned min_level, unsigned max_level, unsigned prim_tile,
+                    const int32_t s[3], const int32_t t[3], int oob)
+{
+    const int detail = (h & MRDP_H_DETAIL) != 0, sharpen = (h & MRDP_H_SHARPEN) != 0;
+    unsigned lod = 0;
+    if (!oob) lod = lod_dist(s[0], s[2], t[0], t[2], lod_dist(s[0], s[1], t[0], t[1], 0));
+    unsigned lf, ltil;
+    int mag, dis;
+    if ((lod & 0x4000u) || oob) {
+        /* 512 texels a pixel or more, or a coordinate out of range: the far level, the fraction all ones */
+        mag = 0; ltil = 7; dis = 1; lf = 0xFF;
+    } else if (lod < 32) {
+        /* magnified: level 0. Plain, the fraction is 0 (all ones when the primitive has no level after it); sharpen
+         * and detail take the step itself, no less than the minimum level, and sharpen makes it negative (0x100 up,
+         * the combiner's signed 9 bits): the next level is weighed against, a sharper texel */
+        mag = 1; ltil = 0; dis = max_level == 0;
+        if (!sharpen && !detail) lf = dis ? 0xFF : 0;
+        else {
+            lf = (lod < min_level ? min_level : lod) << 3;
+            if (sharpen) lf |= 0x100;
+        }
+    } else {
+        /* the level is the top bit of the step in texels (lod >> 5; its 9th bit is lost here, as on the N64, but a step
+         * that has it is at the far level anyway), the fraction the 8 bits under it */
+        mag = 0;
+        ltil = lod_log2((lod >> 5) & 0xFF);
+        dis = max_level ? ((lod & 0x6000u) || ltil >= max_level) : 1;
+        lf = (!sharpen && !detail && dis) ? 0xFF : ((lod << 3) >> ltil) & 0xFF;
+    }
+    mrdp_lod_t o;
+    o.level = (uint8_t)(dis ? max_level : ltil);
+    o.magnify = (uint8_t)mag; o.distant = (uint8_t)dis;
+    o.frac = (uint16_t)lf; o.lod = (uint16_t)lod;
+    o.tile0 = (uint8_t)(prim_tile & 7); o.tile1 = (uint8_t)((prim_tile + 1) & 7);
+    if (h & MRDP_H_TEX_LOD) {
+        const unsigned lv = o.level;
+        if (!detail) {
+            /* the level's tile and the next; at the far level, or magnified without sharpen, both the level's */
+            o.tile0 = (uint8_t)((prim_tile + lv) & 7);
+            o.tile1 = (dis || (!sharpen && mag)) ? o.tile0 : (uint8_t)((o.tile0 + 1) & 7);
+        } else {
+            /* the primitive's tile is the detail texture: magnified, TEXEL0 is it and TEXEL1 level 0 (the tile after);
+             * otherwise the levels are a tile on */
+            o.tile0 = (uint8_t)((prim_tile + lv + (mag ? 0u : 1u)) & 7);
+            o.tile1 = (uint8_t)((prim_tile + lv + ((!dis && !mag) ? 2u : 1u)) & 7);
+        }
+    }
+    return o;
+}
+
+/* is the LOD computed for this 2-cycle primitive's pixels: TEX_LOD, or the combiner reads LOD_FRACTION (C 13 in a
+ * colour, C 0 in an alpha, either cycle) */
+static int lod_wanted(const mrdp_t *r)
+{
+    if (r->other_h & MRDP_H_TEX_LOD) return 1;
+    if (!LOD_FRAC_USED) return 0;
+    uint32_t hi = r->combine_hi, lo = r->combine_lo;
+    return ((hi >> 15) & 31) == 13 || (hi & 31) == 13 || ((hi >> 9) & 7) == 0 || ((lo >> 18) & 7) == 0;
+}
+
+/* The pixel's LOD: S, T at the pixel (at), at the next pixel of the walk and on the next line, through the divide the
+ * pixel's own S, T take (perspective, affine, or a rectangle's s10.5 as they are), then mrdp_lod. */
+static mrdp_lod_t lod_pixel(const mrdp_t *r, const prim_t *pr, const int32_t *at)
+{
+    int32_t s[3], t[3];
+    int oob = 0;
+    if (pr->texrect) {
+        /* (s10.5 in 16 bits, as the pixel's: no divide, never out of range) */
+        s[0] = (int16_t)at[AS]; t[0] = (int16_t)at[AT];
+        s[1] = (int16_t)pr->rnx[0]; t[1] = (int16_t)pr->rnx[1];
+        s[2] = (int16_t)pr->rny[0]; t[2] = (int16_t)pr->rny[1];
+    } else {
+        /* (a triangle without texture coefficients has S = T = W = 0 at all three: with perspective, out of range) */
+        const int persp = (r->other_h & MRDP_H_PERSP) != 0;
+        for (int k = 0; k < 3; k++) {
+            const int32_t *d = k == 1 ? pr->ddx : pr->ddy;
+            uint32_t S = pr->tex ? (uint32_t)at[AS] : 0u, T = pr->tex ? (uint32_t)at[AT] : 0u, Wv = pr->tex ? (uint32_t)at[AW] : 0u;
+            if (k && pr->tex) { S += (uint32_t)d[0]; T += (uint32_t)d[1]; Wv += (uint32_t)d[2]; }
+#ifdef MRDP_EXACT_DIV
+            /* (the console's divide, as the pixel's own S, T take it: its 17 bits and its range flag) */
+            if (persp) { int rs, rt; s[k] = mrdp_n64_div((int32_t)S, (int32_t)Wv, &rs); t[k] = mrdp_n64_div((int32_t)T, (int32_t)Wv, &rt); oob |= rs || rt; }
+#else
+            if (persp) { s[k] = lod_persp((int32_t)S >> 4, Wv, &oob); t[k] = lod_persp((int32_t)T >> 4, Wv, &oob); }
+#endif
+            else { s[k] = (int32_t)S >> 16; t[k] = (int32_t)T >> 16; }   /* (s105_noperp's: s10.5 in 16 bits) */
+        }
+    }
+    return mrdp_lod(r->other_h, r->min_level, pr->level, (unsigned)pr->tile, s, t, oob);
+}
+
+#endif /* MRDP_LOD */
 
 /* An 8-bit colour image (SET_COLOR_IMAGE's size 1): a pixel is a byte, at image + y * width + x -- what software that
  * draws into a colour-indexed texture uses. Its value is the blender's red, as it is (not dithered); a fill writes the
@@ -915,14 +1105,32 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
         else if (h & MRDP_H_PERSP) { s = mrdp_persp(at[AS] >> 4, (uint32_t)at[AW]); t = mrdp_persp(at[AT] >> 4, (uint32_t)at[AW]); }
 #endif
         else { s = s105_noperp(at[AS] >> 5); t = s105_noperp(at[AT] >> 5); }
-        in.tex = texture_pass(r, pr->tile, s, t, 0, s_no_texel);
+        /* the tiles of TEXEL0 and TEXEL1: the primitive's and the next, or (MRDP_LOD) the level's */
+        int tile0 = pr->tile;
+#ifdef MRDP_LOD
+        int tile1 = (pr->tile + 1) & 7;
+        if (cyc == 1 && lod_wanted(r)) {
+            const mrdp_lod_t L = lod_pixel(r, pr, at);
+            in.lodf = L.frac;
+            tile0 = L.tile0; tile1 = L.tile1;
+            if ((h & MRDP_H_TEX_LOD) && pr->tex && cvg) {
+                r->lod_px++; r->lod_lvl[L.level & 7]++;
+                r->lod_mag += L.magnify; r->lod_far += L.distant && !L.magnify;
+            }
+        }
+#endif
+        in.tex = texture_pass(r, tile0, s, t, 0, s_no_texel);
         /* TEXEL1 in the first cycle of a 2-cycle pixel: the next tile (tile + 1) at the same S, T -- the N64's
          * second texture (a skybox's day / night blend, a terrain's second layer). Its second cycle still
          * takes TEXEL0 for both: one fetch more per pixel is all rtl/rdp has. (Without texture coefficients:
          * TEXEL0 again, one pass.) */
         in.tex1 = in.tex;
         if (pr->tex && cyc == 1 && (cc0_uses_texel1(r) || cc1_uses_texel0(r))) {
+#ifdef MRDP_LOD
+            tex_next = texture_pass(r, tile1, s, t, 1, in.tex);
+#else
             tex_next = texture_pass(r, (pr->tile + 1) & 7, s, t, 1, in.tex);
+#endif
             if (cc0_uses_texel1(r)) in.tex1 = tex_next;
             have_next = 1;
         }
@@ -1370,10 +1578,25 @@ static void draw_triangle_aa(mrdp_t *r, const prim_t *pr, int aa_en, int lft, in
 }
 #endif /* MRDP_CVG */
 
+#ifdef MRDP_LOD
+/* the LOD's steps of S, T, W (prim_t ddx, ddy) from a triangle's texture block p: DaDx toward the next pixel of the
+ * N64's walk, which starts at the major edge (left to right with lft; right to left without), and DaDy (the integer
+ * halves at word 10, the fractions at 14: tri_attrs's layout), kept to LOD_DY_MASK */
+static void lod_tri(prim_t *pr, const uint32_t *p, const attr_t *at, int lft)
+{
+    for (int k = 0; k < 3; k++) {
+        int wi = k >> 1, sh = (k & 1) ? 0 : 16;
+        uint32_t yi = (p[10 + wi] >> sh) & 0xFFFF, yf = (p[14 + wi] >> sh) & 0xFFFF;
+        pr->ddy[k] = (int32_t)(yi << 16 | yf) & LOD_DY_MASK;
+        pr->ddx[k] = lft ? at[AS + k].dx : (int32_t)(0u - (uint32_t)at[AS + k].dx);
+    }
+}
+#endif
+
 static void draw_triangle(mrdp_t *r, const uint32_t *w)
 {
     unsigned op = (w[0] >> 24) & 0x3F;
-    prim_t pr = { !!(op & 4), !!(op & 2), !!(op & 1), (int)((w[0] >> 16) & 7), 0, 0, 0, 0 };
+    prim_t pr = { .shade = !!(op & 4), .tex = !!(op & 2), .zbuf = !!(op & 1), .tile = (int)((w[0] >> 16) & 7) };
     int lft = (w[0] >> 23) & 1;
     int32_t yl = sext(w[0], 14), ym = sext(w[1] >> 16, 14), yh = sext(w[1], 14);
     int32_t xl = (int32_t)w[2], dxl = (int32_t)w[3];
@@ -1384,7 +1607,16 @@ static void draw_triangle(mrdp_t *r, const uint32_t *w)
     memset(at, 0, sizeof at);
     const uint32_t *p = w + 8;
     if (pr.shade) { tri_attrs(p, at, AR, 4); p += 16; }
-    if (pr.tex) { tri_attrs(p, at, AS, 3); p += 16; }   /* S, T, W (4th unused) */
+    if (pr.tex) {                                       /* S, T, W (4th unused) */
+        tri_attrs(p, at, AS, 3);
+#ifdef MRDP_LOD
+        lod_tri(&pr, p, at, lft);
+#endif
+        p += 16;
+    }
+#ifdef MRDP_LOD
+    pr.level = (w[0] >> 19) & 7;
+#endif
     if (pr.zbuf) {
         at[AZ].v = (int32_t)p[0]; at[AZ].dx = (int32_t)p[1];
         at[AZ].de = (int32_t)p[2];
@@ -1465,12 +1697,24 @@ static void draw_triangle(mrdp_t *r, const uint32_t *w)
 #define RECT_QUARTERS 0
 #endif
 
+#ifdef MRDP_LOD
+/* a texture rectangle's geometry, and its S, T (s10.5) at column x of row y: draw_texrect's, for the LOD's other two
+ * points (the pixel's own are worked out in place there, the same way) */
+typedef struct { int flip, q, dshift, xh, x0, y0; int32_t s, t, dsdx, dtdy; } texrect_t;
+static inline void texrect_st(const texrect_t *g, int x, int y, int32_t *ps, int32_t *pt)
+{
+    int32_t cq = g->q ? 4 * x - g->xh : x - g->x0;     /* columns from XH: quarters, or whole ones */
+    int cs = g->q ? 2 : 0;
+    *ps = g->flip ? g->s + ((g->dsdx * (y - g->y0)) >> g->dshift) : g->s + ((g->dsdx * cq) >> (g->dshift + cs));
+    *pt = g->flip ? g->t + ((g->dtdy * cq) >> (5 + cs)) : g->t + ((g->dtdy * (y - g->y0)) >> 5);
+}
+#endif
 static void draw_texrect(mrdp_t *r, const uint32_t *w, int flip)
 {
     unsigned cyc = (r->other_h >> MRDP_H_CYCLE_SHIFT) & 3;
     int xl = (w[0] >> 12) & 0xFFF, yl = w[0] & 0xFFF;
     int xh = (w[1] >> 12) & 0xFFF, yh = w[1] & 0xFFF;
-    prim_t pr = { 0, 1, 0, (int)((w[1] >> 24) & 7), 1, 0, 0, 0 };
+    prim_t pr = { .tex = 1, .tile = (int)((w[1] >> 24) & 7), .texrect = 1 };
     int32_t s = sext(w[2] >> 16, 16), t = sext(w[2], 16);
     int32_t dsdx = sext(w[3] >> 16, 16), dtdy = sext(w[3], 16);
     /* Copy mode: the corners' whole pixels, the lower-right one included. Otherwise (MRDP_N64) a pixel is drawn where
@@ -1487,6 +1731,9 @@ static void draw_texrect(mrdp_t *r, const uint32_t *w, int flip)
     if (xa < sc_x0(r)) xa = sc_x0(r);
     if (ya < sc_y0(r)) ya = sc_y0(r);
     int xb = x1 < sc_x1(r) ? x1 : sc_x1(r), yb = y1 < sc_y1(r) ? y1 : sc_y1(r);
+#ifdef MRDP_LOD
+    const texrect_t g = { flip, q, dshift, xh, x0, y0, s, t, dsdx, dtdy };
+#endif
     for (int y = ya; y < yb; y++)
         for (int x = xa; x < xb; x++) {
             int32_t at[NATTR] = { 0 };
@@ -1494,6 +1741,11 @@ static void draw_texrect(mrdp_t *r, const uint32_t *w, int flip)
             int cs = q ? 2 : 0;
             at[AS] = flip ? s + ((dsdx * (y - y0)) >> dshift) : s + ((dsdx * cq) >> (dshift + cs));
             at[AT] = flip ? t + ((dtdy * cq) >> (5 + cs)) : t + ((dtdy * (y - y0)) >> 5);
+#ifdef MRDP_LOD
+            /* the LOD's other two points: the N64 walks a rectangle left to right (and its level count is 0) */
+            texrect_st(&g, x + 1, y, &pr.rnx[0], &pr.rnx[1]);
+            texrect_st(&g, x, y + 1, &pr.rny[0], &pr.rny[1]);
+#endif
             draw_pixel(r, &pr, x, y, at, 0xFFu);
         }
 }
@@ -1508,7 +1760,7 @@ static void fill_rect(mrdp_t *r, const uint32_t *w)
     int x0 = (xh + up) >> 2, y0 = (yh + up) >> 2;
     int x1 = (cyc == 3) ? (xl >> 2) + 1 : (xl + up) >> 2;
     int y1 = (cyc == 3) ? (yl >> 2) + 1 : (yl + up) >> 2;
-    prim_t pr = { 0, 0, 0, 0, 0, 0, 0, 1 };
+    prim_t pr = { .fillq = 1 };
     int xa = x0 > sc_x0(r) ? x0 : sc_x0(r), xb = x1 < sc_x1(r) ? x1 : sc_x1(r);
     int ya = y0 > sc_y0(r) ? y0 : sc_y0(r), yb = y1 < sc_y1(r) ? y1 : sc_y1(r);
     int32_t at[NATTR] = { 0 };
@@ -1763,7 +2015,11 @@ static void execute(mrdp_t *r, const uint32_t *w)
     case MRDP_OP_SET_FILL: r->fill = w[1]; break;
     case MRDP_OP_SET_FOG: r->fog = rgba_of(w[1]); break;
     case MRDP_OP_SET_BLEND: r->blend = rgba_of(w[1]); break;
-    case MRDP_OP_SET_PRIM: r->prim = rgba_of(w[1]); r->prim_lod_frac = (uint8_t)w[0]; break;
+    case MRDP_OP_SET_PRIM: r->prim = rgba_of(w[1]); r->prim_lod_frac = (uint8_t)w[0];
+#ifdef MRDP_LOD
+        r->min_level = (uint8_t)((w[0] >> 8) & 31);
+#endif
+        break;
     case MRDP_OP_SET_ENV: r->env = rgba_of(w[1]); break;
     case MRDP_OP_SET_COMBINE: r->combine_hi = w[0] & 0xFFFFFF; r->combine_lo = w[1]; break;
 #ifdef MRDP_N64
