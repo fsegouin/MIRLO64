@@ -11,7 +11,7 @@ B := build
 # the oracle's source: its own warnings are not ours
 ORC_CFLAGS := -O2 -g -w -I$(ORC)
 
-all: $(B)/rdpo $(B)/rdpo_lod $(B)/rdpo_exact $(B)/rdpgen
+all: $(B)/rdpo $(B)/rdpo_exact $(B)/rdpgen
 
 $(B):
 	mkdir -p $(B)
@@ -24,7 +24,7 @@ define hook
 	    $(1) > $(2).tmp
 	test `grep -c 'mdl_lod_hook(x, y\|mdl_lod_inputs(s, t, oob)' $(2).tmp` = 2
 	( printf '#include "mrdp.h"\nvoid mdl_lod_inputs(const int32_t *s, const int32_t *t, int oob);\n'; \
-	  printf '#ifdef RDP_LOD\nvoid mdl_lod_hook(int x, int y, const mrdp_lod_t *L);\n#endif\n#line 1 "mrdp.c"\n'; cat $(2).tmp ) > $(2)
+	  printf 'void mdl_lod_hook(int x, int y, const mrdp_lod_t *L);\n#line 1 "mrdp.c"\n'; cat $(2).tmp ) > $(2)
 	rm -f $(2).tmp
 endef
 
@@ -34,15 +34,13 @@ $(B)/mrdp_hooked.c: $(M)/mrdp.c | $(B)
 $(B)/oracle.o: oracle_glue.c $(ORC)/n64video.c | $(B)
 	$(CC) $(ORC_CFLAGS) -c oracle_glue.c -o $@
 
-$(B)/rdpo: rdpo.c $(B)/oracle.o $(M)/mrdp.c $(M)/mrdp.h | $(B)
-	$(CC) $(CFLAGS) -DMRDP_N64 -I$(M) rdpo.c $(M)/mrdp.c $(B)/oracle.o -o $@
+# the model as the RTL is
+$(B)/rdpo: rdpo.c $(B)/oracle.o $(B)/mrdp_hooked.c $(M)/mrdp.h | $(B)
+	$(CC) $(CFLAGS) -DMRDP_N64 -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
 
-$(B)/rdpo_lod: rdpo.c $(B)/oracle.o $(B)/mrdp_hooked.c $(M)/mrdp.h | $(B)
-	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_LOD -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
-
-# the model with RDP_EXACT (docs/rdp_exact.md: the console's rules, which the RTL does not follow yet), and the LOD
+# the model with RDP_EXACT (docs/rdp_exact.md: the console's rules, which the RTL does not follow yet)
 $(B)/rdpo_exact: rdpo.c $(B)/oracle.o $(B)/mrdp_hooked.c $(M)/mrdp.h | $(B)
-	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_LOD -DRDP_EXACT -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
+	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_EXACT -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
 
 $(B)/rdpgen: rdpgen.c | $(B)
 	$(CC) $(CFLAGS) -Wno-missing-field-initializers rdpgen.c -lm -o $@

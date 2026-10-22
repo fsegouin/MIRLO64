@@ -1,5 +1,5 @@
-/* rdpo: the RDP reference model (lang/c/mrdp, built with MRDP_N64, and RDP_LOD
- * for rdpo_lod) against an independent pixel-exact software RDP (the oracle,
+/* rdpo: the RDP reference model (lang/c/mrdp, built with MRDP_N64; RDP_EXACT
+ * for rdpo_exact) against an independent pixel-exact software RDP (the oracle,
  * oracle_glue.c), on the same command words and the same initial RDRAM.
  *
  *   rdpo [options] stream.rdps ...
@@ -10,7 +10,7 @@
  * the model's images are then made the oracle's again, so that each primitive
  * is judged on its own: a difference is the command that made it.
  *
- * With RDP_LOD, every pixel's LOD is compared too (hooks on both sides: the
+ * Every pixel's LOD is compared too (hooks on both sides: the
  * model's copy is patched at build time, the oracle's by oracle_hooks.patch):
  * the S, T of the three points each side took, and what each made of them. And
  * every LOD the oracle computes is put through the model's mrdp_lod with the
@@ -154,13 +154,11 @@ typedef struct { uint64_t n, bad, bad_frac, bad_tile, bad_lod, bad_mag; } ustat_
 static ustat_t ust;
 static int verbose;
 static int unit_shown;
-#ifdef RDP_LOD
 static void lod_print(const char *who, const int32_t *s, const int32_t *t, int oob, unsigned lod, unsigned mag, unsigned dis, unsigned lf, int t1, int t2)
 {
     printf("      %-6s S %6d %6d %6d  T %6d %6d %6d  oob %d  lod %5u mag %u far %u frac %03x tiles %d %d\n",
            who, s[0], s[1], s[2], t[0], t[1], t[2], oob, lod, mag, dis, lf, t1, t2);
 }
-#endif
 void orc_lod_hook(int kind, int x, int y, int s0, int t0, int s1, int t1, int s2, int t2,
                   int clamp, int lod, int mag, int dis, int lf, int tile1, int tile2)
 {
@@ -171,7 +169,6 @@ void orc_lod_hook(int kind, int x, int y, int s0, int t0, int s1, int t1, int s2
         o->gen = cur_gen; memcpy(o->s, s, sizeof s); memcpy(o->t, t, sizeof t);
         o->clamp = clamp; o->lod = lod; o->mag = mag; o->dis = dis; o->lf = lf; o->t1 = tile1; o->t2 = tile2;
     }
-#ifdef RDP_LOD
     /* the unit check: the oracle's inputs through the model's LOD logic */
     mrdp_lod_t L = mrdp_lod(cur_h, cur_minl, cur_maxl, cur_tile, s, t, clamp != 0);
     ust.n++;
@@ -185,12 +182,8 @@ void orc_lod_hook(int kind, int x, int y, int s0, int t0, int s1, int t1, int s2
             lod_print("model", s, t, clamp, L.lod, L.magnify, L.distant, L.frac, L.tile0, L.tile1);
         }
     }
-#else
-    (void)lod; (void)mag; (void)dis; (void)lf; (void)tile1; (void)tile2;
-#endif
 }
 
-#ifdef RDP_LOD
 /* the model's hooks (the build's patched copy of mrdp.c: lod_pixel's inputs, then draw_pixel_cvg's result) */
 static int32_t mh_s[3], mh_t[3]; static int mh_oob;
 void mdl_lod_inputs(const int32_t *s, const int32_t *t, int oob) { memcpy(mh_s, s, sizeof mh_s); memcpy(mh_t, t, sizeof mh_t); mh_oob = oob; }
@@ -232,7 +225,6 @@ void mdl_lod_hook(int x, int y, const mrdp_lod_t *L)
         }
     }
 }
-#endif
 
 /* ---- comparison -------------------------------------------------------------------------------------------- */
 static uint32_t cimg, cwidth = 320, csize = 2, zimg; static int have_z;
@@ -332,9 +324,7 @@ int main(int argc, char **argv)
         cimg = 0; cwidth = 320; csize = 2; zimg = 0; have_z = 0; img_h = 240;
         cur_h = 0; cur_minl = 0; cur_maxl = 0; cur_tile = 0; cur_texrect = 0;
         memset(&ust, 0, sizeof ust); unit_shown = 0;
-#ifdef RDP_LOD
         memset(&pst, 0, sizeof pst); pix_shown = logic_shown = 0;
-#endif
         /* Every tile set to zero on both sides before the stream: the oracle keeps flags it derives from a tile's
          * fields (among them whether it clamps) that only SET_TILE computes, so a tile a stream never sets would sample
          * unclamped there, a state the console does not have (its clamp is the tile's fields: a zero tile clamps). */
@@ -380,15 +370,11 @@ int main(int argc, char **argv)
             if (do_resync) resync();
         }
         int bad_stream = bad_prims || ust.bad;
-#ifdef RDP_LOD
         bad_stream |= pst.logic != 0;
-#endif
         any_bad |= bad_stream;
         T_col += tot_c;
         T_str++; T_bstr += bad_stream != 0; T_prim += (uint64_t)nprim; T_bprim += (uint64_t)bad_prims; T_un += ust.n; T_ubad += ust.bad;
-#ifdef RDP_LOD
         T_pn += pst.n; T_psame += pst.same; T_pin += pst.in_diff; T_pinsame += pst.in_diff_out_same; T_plogic += pst.logic;
-#endif
         printf("%s %s: %d primitives (%llu pixels drawn by the model), %d differ (%llu colour, %llu coverage, %llu depth words)",
                bad_stream ? "DIFF" : "SAME", argv[ai], nprim, (unsigned long long)mdl.pixels_drawn, bad_prims, (unsigned long long)tot_c, (unsigned long long)tot_h, (unsigned long long)tot_z);
         if (first_bad >= 0) printf(", first: command #%d line %d", first_bad, cmds[first_bad].line);
@@ -396,7 +382,6 @@ int main(int argc, char **argv)
         if (ust.n) printf("  LOD unit: %llu oracle LODs through mrdp_lod, %llu differ (frac %llu, tiles %llu, lod %llu, magnify/far %llu)\n",
                           (unsigned long long)ust.n, (unsigned long long)ust.bad, (unsigned long long)ust.bad_frac, (unsigned long long)ust.bad_tile,
                           (unsigned long long)ust.bad_lod, (unsigned long long)ust.bad_mag);
-#ifdef RDP_LOD
         if (pst.n) printf("  LOD pixels: %llu drawn with an LOD, %llu agree, %llu took other inputs (%llu of them the same result; point 0 %llu, next pixel %llu, next line %llu, range %llu), %llu same inputs but another result, %llu with no oracle LOD\n",
                           (unsigned long long)pst.n, (unsigned long long)pst.same, (unsigned long long)pst.in_diff, (unsigned long long)pst.in_diff_out_same,
                           (unsigned long long)pst.in_s0, (unsigned long long)pst.in_pt1, (unsigned long long)pst.in_pt2, (unsigned long long)pst.in_oob,
@@ -404,7 +389,6 @@ int main(int argc, char **argv)
         if (pst.in_diff) printf("    inputs: pixel S, T off by 0: %llu, 1: %llu, 2-3: %llu, 4-15: %llu, 16+: %llu (max %d); the same steps (only the pixel's S, T moved) %llu; pixel the same but the next pixel not %llu, the next line not %llu\n",
                                 (unsigned long long)pst.hist[0], (unsigned long long)pst.hist[1], (unsigned long long)pst.hist[2], (unsigned long long)pst.hist[3], (unsigned long long)pst.hist[4], pst.maxd,
                                 (unsigned long long)pst.steps_same, (unsigned long long)pst.only1, (unsigned long long)pst.only2);
-#endif
         if (ppm) {
             char path[1024];
             snprintf(path, sizeof path, "%s_model.ppm", ppm); write_ppm(path, 0, 0);

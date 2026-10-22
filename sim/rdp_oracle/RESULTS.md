@@ -1,9 +1,10 @@
 # The model's LOD against the oracle: results
 
-The model: `lang/c/mrdp/mrdp.c` without `RDP_EXACT` (and so with its own
-perspective divide, not `RDP_EXACT_DIV`), built with `MRDP_N64` and
-`RDP_LOD` (`rdpo_lod`; `rdpo` without the LOD). The oracle and how both are
-driven: [README.md](README.md). Every number below is from `./run.sh 50`; the
+The model: `lang/c/mrdp/mrdp.c` without `RDP_EXACT`, built with `MRDP_N64`,
+as it was when these were measured: with its own perspective divide, which
+the console's (disagreement 2 below) has since replaced. `run.sh`'s `rdpo`
+now has the console's, and its figures are column 1 of docs/rdp_exact.md's
+table. The oracle and how both are driven: [README.md](README.md). Every number below is from `./run.sh 50`; the
 same streams give the same numbers built with gcc in the tools image.
 
 Built with `RDP_EXACT` (`rdpo_exact`) the model has every change below and
@@ -100,7 +101,7 @@ of 34: DtDy & ~0xF), fraction 0x10; the model's next line is 103 (35),
 fraction 0x18. 224 of the 512 pixels differ (every row where the exact step
 is 35).
 
-**Fix** (`lang/c/mrdp/mrdp.c`, `draw_texrect`, the `RDP_LOD` block,
+**Fix** (`lang/c/mrdp/mrdp.c`, `draw_texrect`, the LOD block,
 `model_fix_texrect.patch`): after `texrect_st(&g, x, y + 1, &pr.rny[0],
 &pr.rny[1]);`, the row-stepped coordinate becomes
 
@@ -224,7 +225,7 @@ result; "other inputs": S, T or the range flag at one of the three points
 differed (and how many still gave the same result); "logic": the same inputs,
 another result.
 
-Models: "without", the model without `RDP_EXACT` (`rdpo_lod`); "patches",
+Models: "without", the model without `RDP_EXACT` as it was then; "patches",
 the same with `model_fix_texrect.patch` and `model_fix_divide.patch` applied
 (their figures, taken before rdpo set the eight tiles to zero, which moved only
 the floor's count without them, from 94,294); "exact", the model with

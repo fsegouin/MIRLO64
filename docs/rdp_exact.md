@@ -12,17 +12,15 @@ benches keep passing until the RTL follows them:
 
 | what | where |
 |---|---|
-| the switch | `RDP_EXACT`, with `MRDP_N64`; with `RDP_LOD` too for the LOD's rules (3, and parts of 2 and 7). Off by default |
-| the perspective divide alone | `RDP_EXACT_DIV` (rule 1 only; `RDP_EXACT` implies it): the model as `rtl/rdp` is, which `sim/rdp/build_rtl.sh` builds (with `RDP_LOD` and `RDP_CIMG32`) |
-| the console's perspective divide | `mrdp_n64_div` in `mrdp.c` (declared in `mrdp.h` under `RDP_EXACT_DIV`), and `n64_persp` (static) for the texel |
-| a frame | `make rdp_task EXACT=1` in `sim/rdp` (with the Makefile's default `LOD=1`) |
-| the comparison | `sim/rdp_oracle`: `make` builds `build/rdpo_exact` (`RDP_EXACT` and `RDP_LOD`), `./run.sh 50` runs it on every suite, the minimal streams and the captured dumps |
-| tests | `test_lod.c` checks `mrdp_n64_div` with `-DRDP_EXACT` or `-DRDP_EXACT_DIV`; `test_cvg.c` (two checks take the console's values with the switch) and `test_cimg32.c` pass with and without it |
+| the switch | `RDP_EXACT`, with `MRDP_N64`. Off by default |
+| the console's perspective divide | rule 1, the model's whatever the switch, as `rtl/rdp` has it: `mrdp_n64_div` in `mrdp.c` (declared in `mrdp.h`), and `n64_persp` (static) for the texel |
+| a frame | `make rdp_task EXACT=1` in `sim/rdp` |
+| the comparison | `sim/rdp_oracle`: `make` builds `build/rdpo_exact` (`RDP_EXACT`), `./run.sh 50` runs it on every suite, the minimal streams and the captured dumps |
+| tests | `test_lod.c` checks `mrdp_n64_div`; `test_cvg.c` (two checks take the console's values with the switch) and `test_cimg32.c` pass with and without it |
 
 Without the switch the model is unchanged, byte for byte: `mrdp.o` (`-O2`,
-`MRDP_N64`) is the same object code with and without the switch's code in
-five configurations: none, `RDP_LOD`, `RDP_EXACT_DIV`, `RDP_CIMG32`, and
-all three.
+`MRDP_N64`, and with no define) is the same object code with and without the
+switch's code.
 
 ## In short
 
@@ -33,10 +31,11 @@ each with the oracle's inputs and result), on all 10 minimal streams, and on
 78 of the 79 captured dumps. What is left is 64 colour words in 6
 primitives of one frame (`mk64`): the depth compare's use of the depth image's
 own dz (below, "What is left"). Without the switch the same dumps differ in
-222,756 colour words in 6,310 primitives.
+10,484 colour words in 1,696 primitives (222,756 in 6,310 before rule 1 was
+the model's own).
 
-`rtl/rdp` does the perspective divide as the console does (rule 1): its
-benches build the model with `RDP_EXACT_DIV`. It follows none of the other
+`rtl/rdp` does the perspective divide as the console does (rule 1), and so
+does the model, with or without the switch. The RTL follows none of the other
 rules, and the benches build the model without `RDP_EXACT`, so
 `rdp_regress.sh` passes.
 
@@ -59,14 +58,13 @@ negative is over whatever S is. The texel takes the 17 bits saturated to 16
 (an out-of-range one to the end it went past); the LOD takes the 17 bits and
 the range flag (out of range: the far level).
 
-**Without the switch** (and without `RDP_EXACT_DIV`) the model divides S >>
-4 by all of W with its own reciprocal (`mrdp_rcp`, `mrdp_persp`; `lod_persp`
-for the LOD's points). S and T differ by up to 69 subtexels at a floor's far
-end.
+**Before** this rule was the model's own, it divided S >> 4 by all of W with
+its own reciprocal (`mrdp_rcp`, `mrdp_persp`, and a `lod_persp` for the LOD's
+points). S and T differed by up to 69 subtexels at a floor's far end.
 
-**With it**: `mrdp_n64_div` and `n64_persp`, for the pixel's S, T
-(`draw_pixel_cvg`) and every point the LOD takes (`lod_pixel`, `x_div`).
-`lod_persp` is not built with the switch.
+**Now**, with or without the switch: `mrdp_n64_div` and `n64_persp`, for the
+pixel's S, T (`draw_pixel_cvg`) and every point the LOD takes (`lod_pixel`,
+`x_div`).
 
 **RTL**: `rdp_pix.v` P1 to P4. Done (its P1 to P4 cite `n64_div` and
 `n64_persp`: they are `mrdp_n64_div` and `n64_persp` in `mrdp.c`). A 15-bit normaliser, the two tables in one ROM, a 16 x 15 product:
@@ -318,7 +316,9 @@ were counted with the model's former CVG_X_ALPHA rule (rule 6's last item, now
 the model's own: without the switch the dumps differ in 222,756 colour words
 in 6,310 primitives), and up to column 3 with each tile left as the streams
 set it, which `rdpo` now zeroes on both sides before a stream (the floor
-without the switch: 91,973 colour words).
+without the switch: 91,973 colour words). The model without the switch now
+has rule 1: `run.sh 50`'s `rdpo` lines are column 1, the captured dumps
+10,484 colour words.
 
 | suite | without | 1 | 2 | 3 | 4 | 5 | 6 | 7 | with |
 |---|---|---|---|---|---|---|---|---|---|
@@ -416,6 +416,5 @@ perspective divide with W = 0, as on the console; untested).
 The order that keeps the lockstep benches useful: rule 1 is in; rules 4 and 6
 together (the walk: the rectangles become its primitives, and the span start
 is where rule 4 acts), then 5, 2 (free by then), 7 and 3. A model built with
-only some rules on does not exist yet: `RDP_EXACT_DIV` is the one split
-today, and the others can be split the same way when the RTL follows them one
-at a time.
+only some rules on does not exist yet: rule 1 left the switch when the RTL
+followed it, and the others can leave it the same way, one at a time.

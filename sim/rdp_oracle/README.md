@@ -1,8 +1,7 @@
 # sim/rdp_oracle: the RDP model against an independent software RDP
 
-`lang/c/mrdp` (the RDP's reference model, built with `MRDP_N64`, and with
-`RDP_LOD` for the texture level of detail of [docs/lod.md](../../docs/lod.md))
-is written from documentation. This directory runs it, command for command,
+`lang/c/mrdp` (the RDP's reference model, built with `MRDP_N64`, the texture
+level of detail of [docs/lod.md](../../docs/lod.md) included) is written from documentation. This directory runs it, command for command,
 next to an independent, pixel-exact, cycle-agnostic software RDP (the oracle)
 on the same command words and the same initial RDRAM, and compares the colour
 image, its hidden coverage bits and the depth image after every primitive. For
@@ -35,7 +34,7 @@ Debian):
 ```sh
 cd sim/rdp_oracle
 ./setup.sh            # once: fetch the oracle (needs the network), apply the hooks
-make                  # build/rdpo, build/rdpo_lod, build/rdpo_exact, build/rdpgen
+make                  # build/rdpo, build/rdpo_exact, build/rdpgen
 ./run.sh 50           # every suite, 50 seeds: one TOTAL line each, logs in build/logs/
 ```
 
@@ -44,8 +43,8 @@ make                  # build/rdpo, build/rdpo_lod, build/rdpo_exact, build/rdpg
 `TRIAGE_DIR=<dir>` (to `run.sh`) finds the captured task dumps somewhere other
 than `build/triage` at the repository's root.
 
-`run.sh` runs every suite through the model without `RDP_EXACT` (`rdpo`,
-`rdpo_lod`) and with it (`rdpo_exact`), builds four copies of the model (without
+`run.sh` runs every suite through the model without `RDP_EXACT` (`rdpo`) and
+with it (`rdpo_exact`), builds four copies of the model (without
 the switch) with one LOD choice changed (the mutants: all of DaDy, `|d|`, the
 walk reversed, no fraction without TEX_LOD) and shows that each differs from
 the oracle, runs `streams/` through both models, and runs the captured task
@@ -57,9 +56,8 @@ In the tools image: `tools/docker/run.sh make -C sim/rdp_oracle B=build/linux`
 
 | program | what |
 |---|---|
-| `build/rdpo` | the model without `RDP_EXACT` (its own perspective divide too) and without `RDP_LOD` |
-| `build/rdpo_lod` | the same with `RDP_LOD`, and the LOD comparison |
-| `build/rdpo_exact` | the model with `RDP_EXACT` (docs/rdp_exact.md) and `RDP_LOD`, and the LOD comparison |
+| `build/rdpo` | the model without `RDP_EXACT`, as the RTL is, and the LOD comparison |
+| `build/rdpo_exact` | the model with `RDP_EXACT` (docs/rdp_exact.md), and the LOD comparison |
 | `build/rdpgen SUITE [SEED [N]]` | writes a stream (below) to stdout |
 | `task2rdps.sh DUMP` | a captured graphics task dump (`build/triage/*/dumps`) as a stream, through `sim/rdp/rdp_task` built here |
 
@@ -104,7 +102,7 @@ tiles: the oracle keeps flags it derives from a tile's fields at SET_TILE
 (whether it clamps, among them), so a tile a stream never set would sample
 unclamped there, which no console state matches (a zero tile clamps).
 
-The LOD comparison (`rdpo_lod`, `rdpo_exact`): the Makefile writes a copy of
+The LOD comparison (`rdpo`, `rdpo_exact`): the Makefile writes a copy of
 `mrdp.c` under `build/` with two calls added (the inputs `lod_pixel` gives
 `mrdp_lod`, and the result `draw_pixel_cvg` takes; the build checks both were
 added). The oracle's hook reports each 2-cycle LOD with its pixel. For every
@@ -149,5 +147,5 @@ each says in its header what it shows.
 | `rdpgen.c` | the streams |
 | `task2rdps.sh` | a task dump as a stream |
 | `run.sh` | all of it |
-| `model_fix_texrect.patch`, `model_fix_divide.patch` | the two model changes of RESULTS.md (disagreements 1 and 2) as patches of `lang/c/mrdp/mrdp.c` without `RDP_EXACT`; they do not apply to it now, as `RDP_EXACT` has both (rules 2 and 1 of docs/rdp_exact.md) |
+| `model_fix_texrect.patch`, `model_fix_divide.patch` | the two model changes of RESULTS.md (disagreements 1 and 2) as patches of `lang/c/mrdp/mrdp.c` without `RDP_EXACT` as it was then; they do not apply to it now: the divide is the model's own, and `RDP_EXACT` has the other (rules 1 and 2 of docs/rdp_exact.md) |
 | `streams/*.rdps` | the minimal streams |
