@@ -98,7 +98,7 @@ logic        field;
 // An origin written in a serrated hi-res picture's second field (the field bit as the game reads it) is the second field's:
 // the base is one row of the buffer before it -- WIDTH * 2 bytes, WIDTH bytes for a pitch of two rows, twice either for
 // 32-bit pixels. libultra writes each field's origin from the field bit, and a game that swaps its buffer every field
-// (Rogue Squadron's 640 x 480 screens, 50 a second) writes the first field's origin of one buffer and the second field's of
+// (a flight game's 640 x 480 screens, 50 a second) writes the first field's origin of one buffer and the second field's of
 // the next: the base is then every field's buffer's first row, and the woven frame stays at the same rows. Not when it is
 // the base or a row on (row_up): the same buffer, or the same origin for both fields.
 wire [13:0]  rowb   = (|wid[11:10] ? {2'd0, wid} : {1'd0, wid, 1'b0}) << st_px32;

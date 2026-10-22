@@ -689,7 +689,7 @@ Synthesis, each unit alone, before and after (ALUTs, registers, DSP blocks, bloc
 * The scan-out's reads in flight as one counter in place of `issued` and `got`: not cycle-identical. `inflight =
   16'(issued - got)` is taken in 16 bits, and both count every read of the frame, so in the cycles after `issued` wraps
   at 1,024 and before `got` does the sum reads near 64 Ki: `room` and `low` drop for those cycles (the request is held off,
-  the urgency lost). One counter gives the true count, and Super Mario 64's log changed (one interrupt fewer in 300M
+  the urgency lost). One counter gives the true count, and a 3D platformer's log changed (one interrupt fewer in 300M
   cycles). The wrap is left as it is: fixing it changes the scan-out's timing.
 * The PSRAM's data lines' register in a block of its own: +2 ALUTs, +1 fitted ALM.
 * The AA filter's three products in DSP blocks: they already are.
@@ -730,8 +730,8 @@ Against a bench built from unchanged main (Verilator 5.052; the toolchain's outp
   every output text, cycle count and frame dump, 334 files, byte for byte the same (12 PASS; `cpu_test` its geometry
   RAM's and bus error count's FAILs, `pi2_test` its ROM reads', on both; `vi_test`, `viaa_test`, `hires_test` and
   `vwin_test` print no verdict: their pictures are the frame dumps, the same).
-* Super Mario 64 for 300M cycles (`FB_N64=1 VGA=1 EXCSTAT=1 -e 60`): the ten frame dumps and the log (288 frames, the
-  CPU at 80246ddc) byte for byte the same.
+* The 3D platformer for 300M cycles (`FB_N64=1 VGA=1 EXCSTAT=1 -e 60`): the ten frame dumps and the log (288 frames,
+  the CPU at 80246ddc) byte for byte the same.
 * `sim/vi_filter`'s regress: the 44 runs' pad hashes the same.
 * Each changed module side by side with its unchanged version on random inputs (`sim/eqcheck/eq.sh`: a Verilator top
   instantiating both, every output compared at every cycle, the outputs that only mean something under the SoC's
@@ -743,6 +743,6 @@ Against a bench built from unchanged main (Verilator 5.052; the toolchain's outp
 * On the second-field origin fix (the branch rebased onto a82eaed), against a bench built from a82eaed: `rcp_vi` side by
   side with a82eaed's (`EXTRA=vi.extra`: origins a row apart, the field turning over; 4 million cycles three times, no
   difference; broken copies of the zero test and of a row compare caught); `vi_test`, `hires_test`, `vwin_test`,
-  `viaa_test`, Super Mario 64 for 300M cycles, Pokemon Stadium 2 and Rogue Squadron (PAL) for 250M cycles (4 s, a frame
-  dump every fifth frame): 425 files byte for byte the same (Pokemon Stadium 2's include 38 woven 640 x 480 frames;
-  Rogue Squadron's first 4 s are 640 x 240).
+  `viaa_test`, the 3D platformer for 300M cycles, a title with woven 640 x 480 screens and a PAL flight game for 250M
+  cycles (4 s, a frame dump every fifth frame): 425 files byte for byte the same (the woven title's include 38 woven
+  640 x 480 frames; the flight game's first 4 s are 640 x 240).
