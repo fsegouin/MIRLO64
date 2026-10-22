@@ -1,7 +1,7 @@
 # 32-bit colour images
 
-Doom 64 draws into a 32-bit colour image (`SET_COLOR_IMAGE` size 3, RGBA8888) and shows it with `VI_STATUS` type 3:
-its title screens, from the "No Controller Pak" screen on. Three parts make that work:
+A game that renders into a 32-bit colour image (`SET_COLOR_IMAGE` size 3, RGBA8888) shows it with `VI_STATUS` type
+3: one such game does it for its title screens, from the "No Controller Pak" screen on. Three parts make that work:
 
 | Part | Where | State |
 |---|---|---|
@@ -39,8 +39,8 @@ The model (`MRDP_N64`, with the blender) follows them:
 
 - **The RGB dither applies to 32-bit images.** The manual says so (above), so the model runs the same `dither_n64` as
   for a 16-bit image: each channel either keeps its eight bits or goes up to the next multiple of 8 (255 at most),
-  and the result is written whole, as the RTL does. One define, `CIMG32_DITHER` in `mrdp.c`, turns it off in the model. Doom 64's title has the dither
-  off (`RGB_DITHER_SEL` 3), so its pixels do not depend on this choice.
+  and the result is written whole, as the RTL does. One define, `CIMG32_DITHER` in `mrdp.c`, turns it off in the model. The captured title
+  screens have the dither off (`RGB_DITHER_SEL` 3), so their pixels do not depend on this choice.
 - **The alpha byte's low five bits are written 0.** The manual puts the coverage in the top three and says nothing of
   the rest; the pixel's own alpha is not stored, as it is not in a 16-bit image.
 - **The hidden bits are not written.** The manual says they are ignored; nothing reads them for a 32-bit image. A game
@@ -65,8 +65,8 @@ coverage at every pixel, wherever the memory colours the scene reads are multipl
 test_cimg32: 31 checks, 0 failed
 ```
 
-`sim/rdp/rdp_task` (`make`) draws Doom 64's four title tasks: 88,895 pixels each, the
-"No Controller Pak" screen's 101 glyph rectangles.
+`sim/rdp/rdp_task` (`make`) draws the four captured title tasks of a game that renders into a 32-bit colour image:
+88,895 pixels each, the "No Controller Pak" screen's 101 glyph rectangles.
 
 ## The scan-out
 
@@ -160,7 +160,7 @@ each already holds one 32-bit pixel an entry:
 The cost is the span's length: a set holds 512 pixels of a 32-bit row against 1,024 of a 16-bit one. A span wider
 than 512 pixels in a 32-bit image (only a hi-res 32-bit picture has one) is drawn in two halves by the sequencer
 (`S_SETUP` splits `[x0, x1]` at 512 pixels and runs the row twice), or, as a first step, the scissor is taken as
-at most 512 pixels wide for a 32-bit image and the case left out. Doom 64 is 320 wide.
+at most 512 pixels wide for a 32-bit image and the case left out. The captured title screens are 320 wide.
 
 M10K: 0 more. (`cold` and `cnew` keep their 4 blocks each; the 32-bit image uses them differently.)
 
@@ -189,7 +189,7 @@ M10K: 0 more. (`cold` and `cnew` keep their 4 blocks each; the 32-bit image uses
   merged). No hidden write.
 - **Fill.** A fill rectangle in a 32-bit image writes `fill` to each word of the span, one pixel a word, with no
   hidden quads.
-- **Bandwidth.** A 32-bit image's colour span is twice the words: a Doom 64 title rectangle is mostly that (no depth).
+- **Bandwidth.** A 32-bit image's colour span is twice the words: a title screen's glyph rectangle is mostly that (no depth).
 
 ### Estimate
 
@@ -208,8 +208,8 @@ widths (Cyclone V: about two 2-to-1 bits an ALM), to be replaced by `tools/area2
 - `sim/rdp`'s `tb_rdp` with a `TB_C32=1` mode as `TB_C8=1` is for an 8-bit image
   (the random streams drawn into a 32-bit colour image, at widths 292, 296 and 320, with and without the SoC's memory
   timing); `tools/area2/rdp_regress.sh` gains those runs.
-- `tb_rdp` on Doom 64's fourth task (`build/triage/doom/dumps/task_gfx_003.bin`): "RTL == model" and 88,895 pixels.
-- Then the whole SoC: Doom 64 for 10 console seconds, its title through the RDP and the scan-out's 32-bit path.
+- `tb_rdp` on the fourth captured title task (`task_gfx_003.bin`): "RTL == model" and 88,895 pixels.
+- Then the whole SoC: that game for 10 console seconds, its title through the RDP and the scan-out's 32-bit path.
 
 ## Implementation
 
@@ -294,11 +294,11 @@ endpoints had before.
 - `TB_LOD=1`, seeds 1 to 12: all `RTL == model`.
 - The 88 captured task dumps under `build/triage/*/dumps*` and `build/lod_dumps/*/`: all `RTL == model` (and with
   `TB_SDRAM=1 TB_CPU=30`). Every `TB_CMDT` log of those that do not draw into a 32-bit image is byte for byte the
-  pre-change RTL's. Doom 64's four tasks now draw 88,895 pixels each (88,895 writes,
+  pre-change RTL's. The four 32-bit title tasks now draw 88,895 pixels each (88,895 writes,
   175,130 clocks against 38,133), and the picture from the RTL's memory is `rdp_task`'s, byte for byte: the
   "No Controller Pak" screen.
-- The whole SoC (`sim/mips_soc`, a bench built with this RTL, `FB_N64=1 VGA=1`): Super Mario 64 for 300M cycles gives
-  frames byte for byte those of a bench built with the RTL before the change. Doom 64 (PAL) for 625M cycles with a
+- The whole SoC (`sim/mips_soc`, a bench built with this RTL, `FB_N64=1 VGA=1`): a 3D platformer for 300M cycles gives
+  frames byte for byte those of a bench built with the RTL before the change. The 32-bit game (PAL) for 625M cycles with a
   runtime built from the current `lang/n64rt` sources shows the "No Controller Pak" screen from field 60, the legal
   text from field 255, its fade, and, run on to 720M cycles, the attract scene's first frames fading in (a textured
   wall under a starry sky), all at the right pitch and colour. A runtime without the change to `n64rt_io.c` draws the
