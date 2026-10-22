@@ -11,7 +11,7 @@ Built with `RDP_EXACT` (`rdpo_exact`) the model has every change below and
 the pre-existing ones listed at the end, and agrees with the oracle on every
 suite (0 colour, coverage and depth words differ; every LOD pixel takes the
 oracle's inputs and result), on every stream of `streams/`, and on 78 of the
-79 captured dumps (64 colour words in 6 primitives of one `mk64` frame):
+79 captured dumps (64 colour words in 6 primitives of one captured frame):
 [docs/rdp_exact.md](../../docs/rdp_exact.md), each rule, its numbers and what
 the RTL must change.
 
@@ -44,7 +44,7 @@ the RTL must change.
   3. 1-cycle mode (choice 7), and copy mode: the oracle computes an LOD in
      both (from the next pixel and the one after it), and with TEX_LOD moves
      TEXEL0's tile; the model computes none. At a level count of 0 without
-     DETAIL it changes nothing (random streams; and the pd2 dumps, which set
+     DETAIL it changes nothing (random streams; and one title's dumps, which set
      TEX_LOD in 1-cycle mode at level count 0, are identical), but with DETAIL
      the tile moves a tile on even at level count 0, and a 1-cycle combiner
      that reads LOD_FRACTION gets a value. The rule is below; `RDP_EXACT`
@@ -174,7 +174,7 @@ DETAIL samples tile 1 on the oracle (without DETAIL both sample tile 0).
 The random `lod1` suite (TEX_LOD, levels 1 to 7) differs in 859,459 colour
 words against 196,540 for the same streams without TEX_LOD (`lod1_control`,
 the pre-existing coordinate differences); at level count 0 without DETAIL
-(`lod1_level0`) exactly the control's 196,540, so the pd2 case is as the doc
+(`lod1_level0`) exactly the control's 196,540, so that title's case is as the doc
 says; with DETAIL (`lod1_level0_detail`) 688,421.
 
 What the oracle does in 1-cycle mode, per pixel `j` of a span (walked from
@@ -280,10 +280,11 @@ hidden bits); shade 647 colour words, depth 56 of 66 primitives, affine
 texturing 1,853, perspective 23,717, texture rectangles 1,329, second-cycle
 TEXEL1 64,864. Of the 79 captured task dumps under `build/triage` (as streams
 through `task2rdps.sh`; none draws with an LOD), 44 that draw are identical
-(`pd2` 15, 318,965 pixels each; `tennis` 28; `mk64` 1), 17 differ (`wave` 16,
-`mk64` 1: 222,756 colour words in 6,310 primitives; 222,778 with the model's
-former CVG_X_ALPHA rule, which disagreement 2's figures start from) and 18
-draw nothing into the image compared (`doom`, `pd`). With `RDP_EXACT`, 78
+(15 of one game, 318,965 pixels each; 28 of a second; 1 of a third), 17 differ
+(16 of a fourth game, and 1 of the third: 222,756 colour words in 6,310
+primitives; 222,778 with the model's former CVG_X_ALPHA rule, which
+disagreement 2's figures start from) and 18 draw nothing into the image
+compared (two more games'). With `RDP_EXACT`, 78
 agree; what is left is in docs/rdp_exact.md, "What is left".
 
 * **The perspective divide** (disagreement 2): the console divides S, T and W's
@@ -295,11 +296,11 @@ agree; what is left is in docs/rdp_exact.md, "What is left".
   DaDx with its low 5 bits cleared (Z whole); the model takes the plane exactly
   at the pixel's top-left corner. S and T differ by 1 to 15 subtexels where
   DaDx is large (`cal_aff`, and the LOD's "other inputs" in `lod2_exact`),
-  shade by an LSB (`cal_shade`), depth by a few (`cal_z`, `mk64`).
+  shade by an LSB (`cal_shade`), depth by a few (`cal_z`, a captured frame).
 * **An untextured triangle with PERSP** (`streams/untextured_persp.rdps`): the
   console's perspective divide sees W = 0 and saturates S and T to 0x7FFF, so
   TEXEL0 is the tile's texel there (its last, clamped); the model's S = T = 0
-  (texel 0, 0). The model's note on Link's collar (TEXEL0 read with G_TEXTURE
+  (texel 0, 0). The model's note on a character's collar (TEXEL0 read with G_TEXTURE
   off) is this case if that triangle is drawn with PERSP (the usual mode): the
   console then reads the tile's far corner, not its first texel.
 * **Edges past 2048 pixels** (`streams/edge_2048.rdps`): the console's edges
@@ -307,7 +308,7 @@ agree; what is left is in docs/rdp_exact.md, "What is left".
   row is not drawn; the model draws it. test_lod.c's floor has such rows (229
   to 239, the 3,520 pixels of `floor_affine`).
 * **A fill rectangle at the scissor's right edge**
-  (`streams/fill_scissor_edge.rdps`, from the `wave` dumps' first task): in fill mode the console
+  (`streams/fill_scissor_edge.rdps`, from one game's first captured task): in fill mode the console
   fills the scissor's last column (XL = 311 with the scissor's XL 311); the
   model stops a column short (its "the pixel at the scissor's end never has a
   sample" holds for sampled modes only).

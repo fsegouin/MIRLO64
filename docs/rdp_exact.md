@@ -29,7 +29,7 @@ With `RDP_EXACT` the model agrees with the oracle on every suite of
 in the worked-step and floor streams; 5.48 million pixels drawn with an LOD,
 each with the oracle's inputs and result), on all 10 minimal streams, and on
 78 of the 79 captured dumps. What is left is 64 colour words in 6
-primitives of one frame (`mk64`): the depth compare's use of the depth image's
+primitives of one captured frame: the depth compare's use of the depth image's
 own dz (below, "What is left"). Without the switch the same dumps differ in
 10,484 colour words in 1,696 primitives (222,756 in 6,310 before rule 1 was
 the model's own).
@@ -196,7 +196,7 @@ tile's texel there (its last, clamped), not its first. Its 2-cycle second
 texel is the next tile's at the same point, as for any primitive.
 
 **Without the switch** the model takes S = T = 0 (texel 0, 0) and one pass.
-Link's collar (drawn with G_TEXTURE off, combiner TEXEL0 * SHADE) reads the
+A character's collar (drawn with G_TEXTURE off, combiner TEXEL0 * SHADE) reads the
 tile's far corner on the console if it is drawn with PERSP.
 
 **With it**: `draw_pixel_cvg` takes a primitive's S, T through the perspective
@@ -242,7 +242,7 @@ without `p_tex`. A few ALUTs.
   1-row tile read on its second row reads TMEM's next row.
 * **CVG_X_ALPHA without AA_EN**: a pixel is written when its top-left sample
   is covered, whatever the coverage after the alpha (with AA_EN that coverage
-  decides): a fill rectangle in each of the 16 `wave` frames, drawn in 1-cycle
+  decides): a fill rectangle in each of one game's 16 captured frames, drawn in 1-cycle
   mode with CVG_X_ALPHA, depends on it. The model and the RTL follow this one
   without the switch ([rdp.md](rdp.md), "Write rule").
 
@@ -373,7 +373,7 @@ Notes:
 switch, word for word (colour, hidden bits, depth), and every LOD the model
 draws takes the oracle's inputs and result.
 
-**The captured dumps**: one stream, `mk64_dumps_002`, 6 primitives, 64
+**The captured dumps**: one stream, captured task 002 of one game, 6 primitives, 64
 colour words, no coverage or depth words. They are 1-cycle,
 anti-aliased, depth-compared triangles (AA_EN, Z_CMP, Z_UPD, IM_RD, opaque).
 The console's depth compare reads the depth image's own dz: its code is the

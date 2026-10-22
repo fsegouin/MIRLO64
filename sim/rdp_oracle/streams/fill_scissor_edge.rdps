@@ -1,4 +1,4 @@
-# (Not the LOD; from the first task of build/triage/wave.) Fill mode, scissor (8, 20) to (311, 219), a fill rectangle (0, 20) to
+# (Not the LOD; from one game's first captured task.) Fill mode, scissor (8, 20) to (311, 219), a fill rectangle (0, 20) to
 # (311, 219): the oracle fills column 311 (the scissor's right edge counts in fill mode); the model stops at 310.
 rdram zero
 cmd 3f10013f 00100000
