@@ -309,9 +309,8 @@ as it does for the LOD. About 100 to 200 ALUTs and 80 to 120 flip-flops.
 The colour words that differ in `./run.sh 50`, and for `lod2` and `rect` the
 LOD pixels (of those the model drew with an LOD) that take the oracle's inputs
 and result. "Without": the model without the switch. Columns 1 to 7: the model
-with that rule and the ones before it (rules 1 and 2 are
-`model_fix_divide.patch` and `model_fix_texrect.patch` in `sim/rdp_oracle`,
-the same changes). "With": the model with the switch. Columns "without" to 7
+with that rule and the ones before it (rules 1 and 2 are the two fixes of
+sim/rdp_oracle/RESULTS.md's disagreements 2 and 1). "With": the model with the switch. Columns "without" to 7
 were counted with the model's former CVG_X_ALPHA rule (rule 6's last item, now
 the model's own: without the switch the dumps differ in 222,756 colour words
 in 6,310 primitives), and up to column 3 with each tile left as the streams

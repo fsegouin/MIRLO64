@@ -28,19 +28,17 @@ the RTL must change.
 * **Disagreements**, each with a minimal stream in `streams/`:
   1. A texture rectangle's next line (choice 6): the oracle steps it by DtDy
      kept to the same 17 bits as a triangle's DaDy; the model takes the exact
-     next row. Fix: `model_fix_texrect.patch` (one block in `draw_texrect`);
-     with it every texture rectangle LOD agrees (173,939 pixels). `RDP_EXACT`
-     rule 2.
+     next row. Fix: `RDP_EXACT` rule 2 (one block in `draw_texrect`);
+     with it every texture rectangle LOD agrees (173,939 pixels).
   2. The perspective divide at the three points (choice 4): the oracle divides
      the 16-bit integer halves of S, T and W with the console's reciprocal
      table; the model divides more bits with its own reciprocal. S and T
      differ by a few subtexels and with them the fraction, and near a power of
-     two the level. Fix: `model_fix_divide.patch` (the console's perspective
-     divide, for the pixel and the three points alike); with it test_lod's
-     floor goes from 21 to 169,020 of 183,660 LOD pixels agreeing. It also
+     two the level. Fix: the console's perspective divide, for the pixel and
+     the three points alike (now the model's own, `RDP_EXACT` rule 1); with
+     it test_lod's floor goes from 21 to 169,020 of 183,660 LOD pixels agreeing. It also
      removes most of the pre-existing perspective texel differences: on the 79
      captured task dumps the differing colour words go from 222,778 to 10,506.
-     `RDP_EXACT` rule 1.
   3. 1-cycle mode (choice 7), and copy mode: the oracle computes an LOD in
      both (from the next pixel and the one after it), and with TEX_LOD moves
      TEXEL0's tile; the model computes none. At a level count of 0 without
@@ -101,20 +99,10 @@ of 34: DtDy & ~0xF), fraction 0x10; the model's next line is 103 (35),
 fraction 0x18. 224 of the 512 pixels differ (every row where the exact step
 is 35).
 
-**Fix** (`lang/c/mrdp/mrdp.c`, `draw_texrect`, the LOD block,
-`model_fix_texrect.patch`): after `texrect_st(&g, x, y + 1, &pr.rny[0],
-&pr.rny[1]);`, the row-stepped coordinate becomes
-
-```c
-const int32_t c = flip ? s : t, d = flip ? dsdx : dtdy;
-uint32_t row = ((uint32_t)c << 16) + ((uint32_t)(d * (y - y0)) << 11);
-pr.rny[flip ? 0 : 1] = (int32_t)(row + ((uint32_t)(d << 11) & (uint32_t)LOD_DY_MASK)) >> 16;
-```
-
-(`row` is the row's coordinate as s10.5 with its fraction, whose top 16 bits
-`texrect_st` already gives; the step is the 16.16 DaDy kept to
-`LOD_DY_MASK`.) With it: `texrect_next_line` identical, and all 173,939 LOD
-pixels of the `rect` suite agree (16,612 took another next line before).
+**Fix** (`draw_texrect`'s LOD block, docs/rdp_exact.md rule 2): the next
+line is the row's coordinate stepped by the rectangle's DaDy kept to
+`LOD_DY_MASK`, as a triangle's. With it: `texrect_next_line` identical, and
+all 173,939 LOD pixels of the `rect` suite agree (16,612 took another next line before).
 docs/lod.md choice 6 would say that the next line is the rectangle's row step
 kept to `LOD_DY_MASK`, as a triangle's DaDy.
 
@@ -126,31 +114,9 @@ triangle, 2-cycle, PERSP, TEX_LOD, six levels, the fraction as the colour.
 by up to 69 subtexels (`-v` lists them), most by 1 to 15. The LOD logic agrees
 on every pixel: only its inputs differ.
 
-**Fix** (`model_fix_divide.patch`): a function `n64_div(S, W, &range)` (the
-console's perspective divide on the 16-bit integer halves, returning the
-17-bit s11.5 value and the range flags) and `n64_persp` (the same saturated to
-16 bits for the texel), in `mrdp.c` after `s105_noperp` under `MRDP_N64`; then
-
-* `draw_pixel_cvg`: `s = n64_persp(at[AS], at[AW]); t = n64_persp(at[AT], at[AW]);`
-  in place of the two `mrdp_persp(at[..] >> 4, at[AW])`;
-* `lod_pixel`: `s[k] = n64_div((int32_t)S, (int32_t)Wv, &rs); t[k] = n64_div((int32_t)T, (int32_t)Wv, &rt); oob |= rs || rt;`
-  in place of the two `lod_persp` (which goes).
-
-The perspective divide, as the patch has it (W's integer half `w16`, S's
-`s16`):
-
-```
-shift = 14 - (place of w16's top set bit among its low 15), 14 for 0
-norm = (w16 << shift) & 0x3FFF; idx = norm >> 8; frac = (norm & 0xFF) << 2
-rcp = ((((slope[idx] | ~0x3FF) + 1) * frac >> 10) + point[idx]) & 0x7FFF
-prod = s16 * rcp; mask = ((1 << 30) - 1) & -((1 << 29) >> shift)
-out of range: (prod & mask) is neither 0 nor mask (under if prod bit 29, else over); w16 <= 0: over
-value = (shift != 14 ? prod >> (13 - shift) : prod << 1), 17 bits
-the texel's: saturated to 16 bits, an out-of-range one to the end it went past (over: 0x7FFF, under: 0x8000)
-```
-
-with the console's two 64-entry tables (in the patch). With it: test_lod's
-floor 169,020 of 183,660 LOD pixels agree (21 before; what is left are the
+**Fix**: the console's perspective divide (`mrdp_n64_div` in `mrdp.c`, the
+model's own since; docs/rdp_exact.md rule 1), for the texel and the LOD's
+three points. With it: test_lod's floor 169,020 of 183,660 LOD pixels agree (21 before; what is left are the
 attribute interpolation's few subtexels, pre-existing), `persp_divide` goes
 from 16,705 differing colour words to 3, `cal_persp` from 23,717 to 6,935, and
 the 79 captured task dumps from 222,778 to 10,506. test_lod.c still passes
@@ -225,32 +191,31 @@ result; "other inputs": S, T or the range flag at one of the three points
 differed (and how many still gave the same result); "logic": the same inputs,
 another result.
 
-Models: "without", the model without `RDP_EXACT` as it was then; "patches",
-the same with `model_fix_texrect.patch` and `model_fix_divide.patch` applied
-(their figures, taken before rdpo set the eight tiles to zero, which moved only
-the floor's count without them, from 94,294); "exact", the model with
+Models: "without", the model without `RDP_EXACT` as it was then; "fixes",
+the same with the fixes of disagreements 1 and 2 (their figures, taken
+before rdpo set the eight tiles to zero, which moved only the floor's count without them, from 94,294); "exact", the model with
 `RDP_EXACT` (`rdpo_exact`).
 
 | suite | model | primitives differ | colour words | LOD unit (oracle inputs) | LOD pixels | agree | other inputs (same result) | logic |
 |---|---|---|---|---|---|---|---|---|
 | units (4 combiners) | all | 0 of 164 | 0 | 28,160, 0 differ | 25,600 | 25,600 | 0 | 0 |
 | floor (plain, sharpen, detail) | without | 6 of 9 | 91,973 | 175,512, 0 | 183,660 | 21 | 173,079 (59,386) | 0 |
-| | patches | 6 of 9 | 13,746 | 175,512, 0 | 183,660 | 169,020 | 4,080 (3,978) | 0 |
+| | fixes | 6 of 9 | 13,746 | 175,512, 0 | 183,660 | 169,020 | 4,080 (3,978) | 0 |
 | | exact | 0 of 9 | 0 | 175,512, 0 | 173,100 | 173,100 | 0 | 0 |
-| floor, affine | without, patches | 1 of 3 | 3,520 (rows past 2048 px) | 58,504, 0 | 61,220 | 56,921 | 779 (779) | 0 |
+| floor, affine | without, fixes | 1 of 3 | 3,520 (rows past 2048 px) | 58,504, 0 | 61,220 | 56,921 | 779 (779) | 0 |
 | | exact | 0 of 3 | 0 | 58,504, 0 | 57,700 | 57,700 | 0 | 0 |
 | lod2 | without | 488 of 900 | 183,103 | 1,214,384, 0 | 1,107,813 | 303,303 | 804,510 (522,367) | 0 |
-| | patches | 477 of 900 | 130,296 | 1,214,384, 0 | 1,107,813 | 392,094 | 715,719 (490,729) | 0 |
+| | fixes | 477 of 900 | 130,296 | 1,214,384, 0 | 1,107,813 | 392,094 | 715,719 (490,729) | 0 |
 | | exact | 0 of 900 | 0 | 1,214,384, 0 | 1,107,813 | 1,107,813 | 0 | 0 |
-| lod2, exact affine | without, patches | 183 of 863 | 43,877 | 942,402, 0 | 846,770 | 608,521 | 238,249 (188,968) | 0 |
+| lod2, exact affine | without, fixes | 183 of 863 | 43,877 | 942,402, 0 | 846,770 | 608,521 | 238,249 (188,968) | 0 |
 | | exact | 0 of 863 | 0 | 942,402, 0 | 846,770 | 846,770 | 0 | 0 |
 | frac2 | without | 504 of 900 | 209,196 | 1,214,384, 0 | 1,107,813 | 303,303 | 804,510 (522,416) | 0 |
-| | patches | 496 of 900 | 151,988 | 1,214,384, 0 | 1,107,813 | 392,094 | 715,719 (490,729) | 0 |
+| | fixes | 496 of 900 | 151,988 | 1,214,384, 0 | 1,107,813 | 392,094 | 715,719 (490,729) | 0 |
 | | exact | 0 of 900 | 0 | 1,214,384, 0 | 1,107,813 | 1,107,813 | 0 | 0 |
-| frac2, exact affine | without, patches | 184 of 863 | 38,570 | 942,402, 0 | 846,770 | 608,521 | 238,249 (188,968) | 0 |
+| frac2, exact affine | without, fixes | 184 of 863 | 38,570 | 942,402, 0 | 846,770 | 608,521 | 238,249 (188,968) | 0 |
 | | exact | 0 of 863 | 0 | 942,402, 0 | 846,770 | 846,770 | 0 | 0 |
 | rect | without | 773 of 900 | 137,382 | 197,913, 0 | 173,939 | 157,327 | 16,612 (12,615) | 0 |
-| | patches | 772 of 900 | 137,125 | 197,913, 0 | 173,939 | 173,939 | 0 | 0 |
+| | fixes | 772 of 900 | 137,125 | 197,913, 0 | 173,939 | 173,939 | 0 | 0 |
 | | exact | 0 of 900 | 0 | 197,913, 0 | 173,939 | 173,939 | 0 | 0 |
 | lod2_t1 | without | 684 of 900 | 811,218 | 1,210,580, 0 | 1,137,138 | 290,350 | 846,788 (524,061) | 0 |
 | | exact | 0 of 900 | 0 | 1,210,580, 0 | 1,137,138 | 1,137,138 | 0 | 0 |
@@ -259,7 +224,7 @@ the floor's count without them, from 94,294); "exact", the model with
 | lod1_t1 | without | 757 of 900 | 844,124 | (1-cycle: no hook) | | | | |
 | | exact | 0 of 900 | 0 | | | | | |
 
-What still differs with the two patches is not the LOD: in `lod2` and `frac2`
+What still differs with the two fixes is not the LOD: in `lod2` and `frac2`
 the attribute interpolation's few subtexels at the pixel (the "other inputs"
 move S and T at all three points alike) and untextured triangles with PERSP;
 in `rect` the 1-cycle rectangles (disagreement 3) and rectangle edge coverage.

@@ -147,5 +147,4 @@ each says in its header what it shows.
 | `rdpgen.c` | the streams |
 | `task2rdps.sh` | a task dump as a stream |
 | `run.sh` | all of it |
-| `model_fix_texrect.patch`, `model_fix_divide.patch` | the two model changes of RESULTS.md (disagreements 1 and 2) as patches of `lang/c/mrdp/mrdp.c` without `RDP_EXACT` as it was then; they do not apply to it now: the divide is the model's own, and `RDP_EXACT` has the other (rules 1 and 2 of docs/rdp_exact.md) |
 | `streams/*.rdps` | the minimal streams |
