@@ -876,6 +876,6 @@ Against a bench built from unchanged main (`e17dce2`, Verilator 5.052):
   of `soc_regress.sh` and `dma_coh_test` (`-c 30`, `VGA=1`, a frame dump each
   frame): 334 files, output text, cycle counts and frames byte for byte the
   reference's (12 PASS; `cpu_test`'s three FAILs and `pi2_test`'s nine on
-  both). Super Mario 64 for 300M cycles (`FB_N64=1 VGA=1 EXCSTAT=1 -e 60`):
+  both). A 3D platformer for 300M cycles (`FB_N64=1 VGA=1 EXCSTAT=1 -e 60`):
   the ten frame dumps and the log (288 frames, the CPU at 80246ddc) byte for
   byte the same, with changes 1 and 2 and again with all three.
