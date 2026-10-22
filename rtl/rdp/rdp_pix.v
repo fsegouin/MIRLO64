@@ -38,9 +38,7 @@
 // read 9 clocks after it is written, or 9 + D: without the LOD every pixel
 // takes the clocks it took before, and only S, T at P4 choose between two
 // sources.
-module rdp_pix #(
-    parameter LOD = 1           // 0: no LOD (LOD_FRACTION reads 0, the first cycle's alpha takes the narrower arithmetic)
-) (
+module rdp_pix (
     input  wire        clk,
     input  wire        rst,
 
@@ -148,21 +146,7 @@ module rdp_pix #(
         input [8:0] v;
         cc_xc = {v[8], v};
     endfunction
-    // cc_eval0: the first cycle's alpha, whose operands are 0..511 (COMBINED is 0 there; bit 9 of A, B, C is clear). Its colours
-    // take cc_eval1: K4 as B and K5 as C are signed numbers.
-    function automatic [8:0] cc_eval0;
-        input [9:0] a, b, c;
-        input [8:0] d;
-        reg signed [9:0]  diff;
-        reg signed [19:0] prod;
-        reg [16:0] sum;
-        begin
-            diff = $signed({1'b0, a[8:0]}) - $signed({1'b0, b[8:0]});
-            prod = diff * $signed({1'b0, c[8:0]});
-            sum = prod[16:0] + {d, 8'h80};
-            cc_eval0 = sum[16:8];
-        end
-    endfunction
+    // cc_eval1: both cycles' arithmetic, A, B, C as signed numbers (COMBINED, K4 as B, K5 and the LOD fraction as C)
     function automatic [8:0] cc_eval1;
         input [9:0] a, b, c;
         input [8:0] d;
@@ -1053,14 +1037,14 @@ module rdp_pix #(
                 rgb_d(add_r, 2'd0, tex, tex1, sh, cm), rgb_d(add_r, 2'd1, tex, tex1, sh, cm), rgb_d(add_r, 2'd2, tex, tex1, sh, cm), al_d(add_a, tex, tex1, sh, cm) };
         end
     endfunction
-    // the four channels' raw 9 bits (cycle 0: operands 0..511, and its colours' K4 and K5, and with the LOD its alpha's
-    // LOD fraction, a signed C; cycle 1: COMBINED too)
+    // the four channels' raw 9 bits (cycle 0: operands 0..511, and its colours' K4 and K5, and its alpha's LOD fraction,
+    // a signed C; cycle 1: COMBINED too)
     function automatic [35:0] cc_arith0;
         input [155:0] o;
         cc_arith0 = { cc_eval1(o[155:146], o[115:106], o[75:66], o[35:27]),
                       cc_eval1(o[145:136], o[105:96],  o[65:56], o[26:18]),
                       cc_eval1(o[135:126], o[95:86],   o[55:46], o[17:9]),
-                      LOD ? cc_eval1(o[125:116], o[85:76], o[45:36], o[8:0]) : cc_eval0(o[125:116], o[85:76], o[45:36], o[8:0]) };
+                      cc_eval1(o[125:116], o[85:76],   o[45:36], o[8:0]) };
     endfunction
     function automatic [35:0] cc_arith1;
         input [155:0] o;

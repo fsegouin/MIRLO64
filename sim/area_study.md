@@ -564,7 +564,6 @@ covered sample, `z_dx[31:5] * ox` and `z_dy[31:5] * oy` with `ox`, `oy` of
 0 to 3, takes two 27 x 27 DSP blocks for what two shift-and-adds do (some 60
 ALUTs): a way to two DSP blocks if those become the limit.
 
-Verification: docs/lod.md, "How it was checked" (the regress with and
-without the LOD, seeds 100 to 160, 211 `TB_LOD=1` runs, the 79 dumps' per-
-command clocks byte for byte against the RTL before the LOD, with and
-without it).
+Verification: docs/lod.md, "How it was checked" (the regress, seeds 100 to
+160, 211 `TB_LOD=1` runs, the 79 dumps' per-command clocks byte for byte
+against the RTL before the LOD).

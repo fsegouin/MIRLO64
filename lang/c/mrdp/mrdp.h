@@ -34,11 +34,6 @@
 #ifndef MRDP_H
 #define MRDP_H
 
-/* RDP_EXACT_DIV: the console's perspective divide (mrdp_n64_div), the model as the RTL is. RDP_EXACT implies it. */
-#if defined(RDP_EXACT) && !defined(RDP_EXACT_DIV)
-#define RDP_EXACT_DIV 1
-#endif
-
 #include <stdint.h>
 
 /* opcodes (bits [61:56] of a command, i.e. [29:24] of its first word) */
@@ -87,7 +82,7 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
 #define MRDP_H_BILERP0       (1u << 11)
 #define MRDP_H_BILERP1       (1u << 10)
 #define MRDP_H_CONVERT_ONE   (1u << 9)
-/* RDP_LOD: the texture level of detail (mrdp.c, the LOD section; docs/lod.md). Read only with RDP_LOD. */
+/* the texture level of detail (MRDP_CVG: mrdp.c, the LOD section; docs/lod.md) */
 #define RDP_H_DETAIL         (1u << 18) /* level 0 is a detail texture: the levels proper start at the tile after */
 #define RDP_H_SHARPEN        (1u << 17) /* a magnified pixel extrapolates away from the next level (a negative fraction) */
 #define RDP_H_TEX_LOD        (1u << 16) /* the tiles are the primitive's tile plus the level */
@@ -182,11 +177,9 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
  *   MRDP_NO_BLEND  no blender: a pixel is the combiner's output (no fog),
  *                  the colour image is never read, and a translucent surface
  *                  is drawn through a screen door by its alpha
- *   RDP_LOD        the texture level of detail of a 2-cycle primitive: the
- *                  level's tiles and LOD_FRACTION (mrdp.c, docs/lod.md), as
- *                  rtl/rdp has it
- *   RDP_EXACT_DIV  the console's perspective divide (mrdp_n64_div), as
- *                  rtl/rdp has it; without it the model's own (mrdp_persp) */
+ * (Without MRDP_NO_BLEND, MRDP_CVG, the model is rtl/rdp's: also the texture
+ * level of detail of a 2-cycle primitive, the level's tiles and LOD_FRACTION
+ * (mrdp.c, docs/lod.md), and the console's perspective divide, mrdp_n64_div.) */
 typedef struct {
     uint8_t fmt;          /* 0 RGBA5551 (N64 layout: R[15:11] G B A[0]),
                              1 IA88 (I[15:8] A[7:0]), 2 RGBA4444 (R[15:12]..A[3:0]);
@@ -220,7 +213,7 @@ typedef struct {
     uint32_t fill;
     mrdp_rgba_t fog, blend, prim, env;
     uint8_t prim_lod_frac;
-#ifdef RDP_LOD
+#ifdef MRDP_CVG
     uint8_t min_level;                     /* SET_PRIM_COLOR's minimum level, 5 bits: the smallest LOD a magnified pixel's fraction takes (u0.5 texels) */
     uint64_t lod_px, lod_mag, lod_far;     /* pixels of a 2-cycle primitive with the LOD on; of those, magnified and at the far level */
     uint64_t lod_lvl[8];                   /* and by the level they took */
@@ -263,14 +256,12 @@ void mrdp_push(mrdp_t *r, uint32_t word);
 /* building blocks, exported for unit tests and the RTL testbenches */
 uint32_t mrdp_rcp(uint32_t w, int *shift);   /* see mrdp.c */
 int32_t mrdp_persp(int32_t s, uint32_t w);   /* S/W as s10.5 */
-#ifdef RDP_EXACT_DIV
-/* RDP_EXACT_DIV: the console's perspective divide (mrdp.c; docs/rdp.md, Coordinates). s: S or T (s10.5 in the integer
+#ifdef MRDP_CVG
+/* the console's perspective divide (mrdp.c; docs/rdp.md, Coordinates). s: S or T (s10.5 in the integer
  * half of an s15.16), w: W (s.15 in the integer half); only the integer halves are used. Returns S / W as s10.5 in 17
  * bits (sign-extended); *range: 0 in range, 2 over (or W's integer half <= 0), 1 under. */
 int32_t mrdp_n64_div(int32_t s, int32_t w, int *range);
-#endif
 
-#ifdef RDP_LOD
 /* The LOD of one pixel (mrdp.c, the LOD section; docs/lod.md). In: the modes (other_h), SET_PRIM_COLOR's minimum level,
  * the primitive's level count (the triangle's level field; a texture rectangle's 0) and tile, and S and T at the pixel
  * ([0]), at the next pixel of the walk ([1]) and on the next line ([2]), each s11.5 in 17 bits as the perspective

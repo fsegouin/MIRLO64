@@ -248,8 +248,7 @@ row as an even one.
   17 bits kept. A product whose bits above those are not all its sign is out
   of range, and so is any coordinate when W's integer half is zero or
   negative; the texel takes the 17 bits saturated to 16, an out-of-range one
-  at the end it went past (the model's `RDP_EXACT_DIV`, `mrdp_n64_div`;
-  without that switch the model keeps its own perspective divide). Without
+  at the end it went past (the model's `mrdp_n64_div`). Without
   perspective S and T are taken as they are, their integer halves.
 * **The tile**: the shift, then the tile's origin is subtracted, then clamp
   (with the clamp bit, or a mask of 0), mirror and mask. Each axis gives two
@@ -318,8 +317,7 @@ pixel's perspective divide is the neighbour's own: `rdp_top` issues such a
 primitive's pixels in the walk's order, two clocks each, and a ghost (through
 the perspective divide, never drawn) where the walk's neighbour is outside the
 span or not issued in time; the next line's perspective divide takes the
-pixel's second clock. `rdp_top`'s parameter `LOD` (1 by default) leaves it
-out: LOD_FRACTION reads 0 and the tiles are the primitive's.
+pixel's second clock.
 
 ## The pixel pipeline
 
@@ -557,7 +555,7 @@ A picture 512 wide or more is shown with the filters off.
 | a frame in software | `sim/rdp/rdp_task` (`make`) | a captured task dump through the RSP's model (`sim/rsp`) and the reference model, to a PPM; `-n` counts the commands by opcode, `-v` lists them, `rdp_stats.py` summarises what the primitives use |
 | RTL against the model, captured tasks | `sim/rdp/build_rtl.sh`, `obj_rdp/tb_rdp task...` | the RSP model's commands go to both, each with its own copy of memory; every byte, hidden plane included, must match |
 | RTL against the model, random | `tb_rdp -r SEED [N]` | random state, loads of every kind from any alignment, triangles and rectangles in every cycle type |
-| the texture LOD | `TB_LOD=1 tb_rdp -r SEED [N]`; `LOD=0 ./build_rtl.sh` | random streams made for the LOD (2-cycle mostly, DaDy on the scale of DaDx, the LOD blend combiner, the minimum level); without the LOD, the RTL (its parameter `LOD` at 0) and the model (no `RDP_LOD`) both |
+| the texture LOD | `TB_LOD=1 tb_rdp -r SEED [N]` | random streams made for the LOD (2-cycle mostly, DaDy on the scale of DaDx, the LOD blend combiner, the minimum level) |
 | the combiner's arithmetic | `sim/rdp/cc_unit.sh` | the functions between `cc_begin` and `cc_end` of `rdp_pix.v`, extracted and compared with the model's over a stride of the operand space and random operands |
 | the dither | `sim/rdp_dither/tb_dither.sv`, `gradient_test.c` | the threshold table and the adder for every value; a shaded gradient through the model for each RGB_DITHER_SEL |
 | the command fetch | `DPC=1 ./build_rtl.sh`, `obj_rdp_dpc/tb_dpc task...` | the RSP's RTL with `rdp_dpc` (`rsp_dpc_wrap.sv`): the words handed on are the RSP model's, in order, on captured tasks, on `gen_xbus_task.py`'s XBUS ones and on `gen_xbus_ring.py`'s (a ring in DMEM, START and END pairs that wait; `TB_CREADY=15`, a slow RDP, keeps lists under way) |

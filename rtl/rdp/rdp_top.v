@@ -9,19 +9,16 @@
 // order). The coverage (anti-aliasing) is the N64's (lang/c/mrdp/mrdp.h,
 // MRDP_CVG): with AA_EN a triangle is walked four subscanlines a row, and its
 // pixels carry their 8-sample masks. YUV textures are converted (SET_CONVERT).
-// The texture LOD of a 2-cycle primitive is the model's with RDP_LOD
-// (docs/lod.md), with the LOD parameter: rdp_pix computes it; this module
-// issues the pixels in the walk's order, with the ghosts that needs, and gives
-// the next line's S, T, W.
+// The texture LOD of a 2-cycle primitive is the model's (docs/lod.md): rdp_pix
+// computes it; this module issues the pixels in the walk's order, with the
+// ghosts that needs, and gives the next line's S, T, W.
 //
 // Commands are executed one at a time. A primitive is drawn row by row: the
 // row's Z and color spans are read into on-chip line buffers, the pixels run
 // through mrdp_pix at one a clock, then the span is written back (only the
 // pixels that passed). State commands wait for the previous primitive to
 // finish, so the pixel pipeline never sees a state change mid-flight.
-module rdp_top #(
-    parameter LOD = 1           // the texture LOD (docs/lod.md); 0: none (LOD_FRACTION reads 0, the primitive's tiles)
-) (
+module rdp_top (
     input  wire        clk,
     input  wire        rst,
 
@@ -243,7 +240,7 @@ module rdp_top #(
     // The LOD (docs/lod.md): a 2-cycle primitive with TEX_LOD, or whose combiner reads LOD_FRACTION (C 13 in a colour, C
     // 0 in an alpha, either cycle). (Registered: the modes are set many clocks before a primitive's first pixel.)
     reg         lod_on;
-    always @(posedge clk) lod_on <= LOD && cyc == 2'd1 && (other_h[16] || cc_hi[19:15] == 5'd13 || cc_hi[4:0] == 5'd13
+    always @(posedge clk) lod_on <= cyc == 2'd1 && (other_h[16] || cc_hi[19:15] == 5'd13 || cc_hi[4:0] == 5'd13
                                                          || cc_hi[11:9] == 3'd0 || cc_lo[20:18] == 3'd0);
     reg         lod_lft;            // the walk goes to the right (a triangle's lft; a rectangle's always): x + 1 is next
     reg  [2:0]  lod_lvl;            // the level count (the triangle's level field; a rectangle's 0)
@@ -255,7 +252,7 @@ module rdp_top #(
     // which would drop t_dxl's low 4 bits). On the whole 32 bits, as the model adds them: a sum that
     // wraps wraps there too.
     reg  [16:0] ldy_s, ldy_t, ldy_w;
-    wire        lpass = LOD && !pix_valid;
+    wire        lpass = !pix_valid;
     wire        rflip = op == 6'h25;
     wire [31:0] dy_s = p_direct ? (rflip ? {{16{t_dxl[31]}}, t_dxl[31:16]} : 32'd0) : {ldy_s, 15'd0};
     wire [31:0] dy_t = p_direct ? (rflip ? 32'd0 : {{16{t_dxl[15]}}, t_dxl[15:0]}) : {ldy_t, 15'd0};
@@ -293,7 +290,7 @@ module rdp_top #(
     wire [15:0] px_color, px_depth;
     wire [7:0]  px_r8;
     wire [1:0]  px_hid;
-    rdp_pix #(.LOD(LOD)) pix (
+    rdp_pix pix (
         .clk(clk), .rst(rst),
         .other_h(other_h), .other_l(other_l), .cc_hi(cc_hi), .cc_lo(cc_lo),
         .prim(prim), .env(env), .fog(fog), .blend(blend),
