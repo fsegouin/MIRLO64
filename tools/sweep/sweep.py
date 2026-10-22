@@ -3,7 +3,7 @@
 bench (sim/mips_soc/obj_soc/tb_soc) and judge each run from its evidence.
 
   tools/sweep/sweep.py roms/ --seconds 8 -j 16
-  tools/sweep/sweep.py "roms/Super Mario 64 (USA).z64" --pad 300-320:8000
+  tools/sweep/sweep.py roms/game.z64 --pad 300-320:8000
 
 Writes <out>/report.json, <out>/report.md, <out>/sheet.png and, per game,
 <out>/<game>/ with run.txt, rsp.log, the frames (PPM and PNG) and report.json.

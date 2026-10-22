@@ -7,7 +7,7 @@ workstation instead of on the Pocket. Python 3, standard library only.
 ```
 tools/sweep/sweep.py roms/                          # every .z64 / .v64 / .n64 in roms/, 8 console seconds each
 tools/sweep/sweep.py roms/ --seconds 4 -j 5 --out build/sweep/quick
-tools/sweep/sweep.py "roms/Super Mario 64 (USA).z64" --seconds 12 --pad 300-320:8000   # press Start at fields 300..320
+tools/sweep/sweep.py roms/game.z64 --seconds 12 --pad 300-320:8000   # one ROM, Start pressed at fields 300..320
 ```
 
 Build the bench (`sim/mips_soc/build.sh soc`, single-threaded) and the runtime (`make -C lang/n64rt`, README.md has
@@ -114,9 +114,9 @@ stopped before the last two captured frames (audio often goes on: a game waiting
 while libultra writes a blank EEPROM at boot: the runtime printed "the cartridge's EEPROM is used (... 0 of them from
 the file)", the pause begins within a few fields of that line, and it has lasted no more than 4 s (4 Kbit) or 6 s
 (16 Kbit). The writes alone are 64 or 256 blocks at about 14 ms, but the pauses measured around them in the 10 s sweep
-are longer (4 Kbit: Banjo-Kazooie 0.8 s, Wave Race 2.7 s, GoldenEye 3.2 s, Mario Kart 64 3.8 s; 16 Kbit: Mario Tennis
-4.8 s), hence those limits. `eeprom_init` in the JSON has the pause for every game with a blank EEPROM. A sweep with
-`--saves` has no such pause. Otherwise `reason` can end with
+are longer (4 Kbit: a platformer 0.8 s, a racer on water 2.7 s, a shooter 3.2 s, a party racer 3.8 s; 16 Kbit: a sports
+game 4.8 s), hence those limits. `eeprom_init` in the JSON has the pause for every game with a blank EEPROM. A sweep
+with `--saves` has no such pause. Otherwise `reason` can end with
 `no graphics task` when frames were dumped but no graphics task ran (a picture the CPU drew, or tasks of another
 kind).
 
