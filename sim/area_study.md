@@ -568,7 +568,7 @@ Verification: docs/lod.md, "How it was checked" (the regress, seeds 100 to
 160, 211 `TB_LOD=1` runs, the 79 dumps' per-command clocks byte for byte
 against the RTL before the LOD).
 
-## CIMG32
+## 32-bit colour images
 
 32-bit colour images in the RDP (docs/cimg32.md, "Implementation"), measured as the LOD was: `ooc.sh rdp` from a copy
 of the script whose project directory is under `build/c32`, then the unit fitted with every pin virtual
@@ -603,8 +603,8 @@ What the first build taught:
   [17:2]}`, is the memory word as it is: no 27-bit select.
 
 Together -63 ALUTs, -61 registers and -57 fitted ALMs (seed 1). On a build before the last two, a variant without the
-split (its two cuts tied to 0) measured 61 ALUTs fewer, and one with `CIMG32=0` 190 fewer: the rest is the widened
-indices and the separate addresses, which stay with the parameter off.
+split (its two cuts tied to 0) measured 61 ALUTs fewer, and one with the 32-bit images turned off (by a parameter it then
+had) 190 fewer: the rest is the widened indices and the separate addresses, which stayed with them off.
 
 Timing: the worst path is the same in every fit before and after, the YUV conversion's input select into `texA9`
 (docs/rdp.md, "A timing option kept in reserve"), and it moves with the seed (+0.595 to +1.149 ns). The new logic's

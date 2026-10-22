@@ -1091,7 +1091,7 @@ module rdp_pix (
         tex10 <= tex10a; tex1_10 <= tex1_10a; shade10 <= shade10a; depth10 <= depth10a;
         zold10 <= x10a[0] ? zlb_rdata[15:0] : zlb_rdata[31:16];     // the even pixel first
         // (a 32-bit image: the word's R G B at eight bits, and the coverage from the alpha byte's top three bits, where
-        // a 16-bit one has its bit 0 and the hidden two; lang/c/mrdp/mrdp.c RDP_CIMG32)
+        // a 16-bit one has its bit 0 and the hidden two; lang/c/mrdp/mrdp.c draw_pixel_cvg)
         mem10 <= c32 ? {clb_rdata[31:8], 8'hFF} : un565(c8 ? 16'd0 : x10a[0] ? clb_rdata[15:0] : clb_rdata[31:16]);
         memb10 <= c32 ? clb_rdata[7] : x10a[0] ? clb_rdata[0] : clb_rdata[16];
         hid10 <= c32 ? clb_rdata[6:5] : hl_rdata[{hk10a, 1'b0} +: 2];

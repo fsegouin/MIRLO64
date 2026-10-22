@@ -750,15 +750,11 @@ typedef struct {
 /* attribute order in the iterators */
 enum { AR, AG, AB, AA, AS, AT, AW, AZ, NATTR };
 
-#if defined(RDP_CIMG32) && !defined(MRDP_CVG)
-#error "RDP_CIMG32 is the N64's pixel pipeline's: build it with MRDP_N64 (and without MRDP_NO_BLEND)"
-#endif
-#ifdef RDP_CIMG32
 /* A 32-bit colour image's RGB is dithered as a 16-bit one's (dither_n64: a channel either kept or taken up to the next
  * multiple of 8) and written whole: the N64 programming manual's blender section says the RGB dither "is enabled even
- * in 32 bit mode", which is why it tells games to turn it off for opaque surfaces there. 0: not dithered. */
+ * in 32 bit mode", which is why it tells games to turn it off for opaque surfaces there. 0: not dithered (the model
+ * only: rtl/rdp dithers). */
 #define CIMG32_DITHER 1
-#endif
 
 #ifdef MRDP_CVG
 /* ---- texture level of detail (MRDP_CVG; docs/lod.md) ---------------------
@@ -1031,12 +1027,10 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
     const int c8 = r->cimg_size == 1;
     uint32_t pix_off = ((uint32_t)y * r->cimg_width + (uint32_t)x) * 2;
     uint32_t caddr = c8 ? r->cimg + (uint32_t)y * r->cimg_width + (uint32_t)x : r->cimg + pix_off, zaddr = r->zimg + pix_off;
-#ifdef RDP_CIMG32
     /* a 32-bit image: 4 bytes a pixel (R, G, B, then the coverage in the alpha byte's top bits); the depth image is
      * 16-bit whatever the colour image is, so zaddr keeps the 2-byte offset */
     const int c32 = r->cimg_size == 3;
     if (c32) caddr = r->cimg + 2u * pix_off;
-#endif
     const int aa = (l & MRDP_L_AA_EN) != 0;
     unsigned cvg = (unsigned)__builtin_popcount(mask & 0xFFu);                  /* 0..8 */
     /* the noise (the RTL's LFSR: a step for each pixel with coverage) */
@@ -1161,7 +1155,6 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
     unsigned memcvg = 7;
     const int rd_mem = !c8 && cvg_need_mem(l, cyc);
     if (rd_mem) {
-#ifdef RDP_CIMG32
         if (c32) {
             /* the memory colour at 8 bits a channel, and the coverage from the alpha byte's top three bits (the
              * hidden bits are not used with a 32-bit image: the manual's "the hidden bits are ignored") */
@@ -1169,7 +1162,6 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
             mem.r = (uint8_t)(hi >> 8); mem.g = (uint8_t)hi; mem.b = (uint8_t)(lo >> 8);
             if (l & MRDP_L_IM_RD) memcvg = (lo >> 5) & 7u;
         } else
-#endif
         {
             uint16_t mw = r->rd16(r->ctx, caddr);
             mem = unrgb565(mw);
@@ -1254,7 +1246,6 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
         r->pixels_drawn++;
         return;
     }
-#ifdef RDP_CIMG32
     if (c32) {
         /* RGBA8888: the channels whole (no 5-bit truncation), the alpha byte the coverage << 5 and its low five bits 0
          * (the pixel's own alpha is not stored, as in a 16-bit image); no hidden bits (copy mode never gets here) */
@@ -1265,7 +1256,6 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
         r->pixels_drawn++;
         return;
     }
-#endif
     if (cyc != 2) out = dither_n64(r, out, x, y, rnd, 1);
     r->wr16(r->ctx, caddr, rgb5551(out, complete));
     hid_set(r, caddr, cvg_out);
@@ -1287,7 +1277,7 @@ static void draw_pixel(mrdp_t *r, const prim_t *pr, int x, int y, const int32_t 
         r->pixels_drawn++;
         return;
     }
-#ifdef RDP_CIMG32
+#ifdef MRDP_CVG
     if (cyc == 3 && r->cimg_size == 3) {           /* fill mode, a 32-bit image: the fill colour whole, a pixel a word (no hidden bits) */
         caddr = r->cimg + 2u * pix_off;
         r->wr16(r->ctx, caddr, (uint16_t)(r->fill >> 16));
@@ -1969,7 +1959,7 @@ static void execute(mrdp_t *r, const uint32_t *w)
     unsigned op = (w[0] >> 24) & 0x3F;
     r->grow = 0;                                  /* TRI_R sets it (draw_triangle_r) */
 #ifdef MRDP_N64
-#ifdef RDP_CIMG32
+#ifdef MRDP_CVG
     /* drawn to a 16-bit colour image, an 8-bit one (wr8) and a 32-bit one -- but not a 32-bit one in copy mode, which the
      * console does not do (the manual: "You cannot copy the 32-bit RGBA color image type"); a 4-bit one: nothing */
     const int cimg_ok = r->cimg_size == 2 || r->cimg_size == 1

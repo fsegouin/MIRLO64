@@ -481,10 +481,7 @@ bits and no hidden bits; its depth image stays 16-bit. The blender reads and
 writes the pixel's eight bits a channel, the RGB dithered as a 16-bit image's
 but not truncated; a fill writes the fill colour whole at each pixel; copy
 mode into one draws nothing. A set of line buffers holds 512 pixels of such a
-row, so a longer span is drawn in two halves. `rdp_top`'s parameter `CIMG32`
-(1 by default) turns it off: a primitive sent while the colour image is a
-32-bit one is then dropped. The model draws it with `RDP_CIMG32`
-([cimg32.md](cimg32.md)).
+row, so a longer span is drawn in two halves ([cimg32.md](cimg32.md)).
 
 Bit 0 of a pixel is the top bit of its 3-bit coverage. The other two bits,
 the N64's hidden bits, are in a plane of their own:
@@ -545,8 +542,8 @@ the alpha byte's top three bits as its coverage, so the filters see what a
 ## Not implemented, or approximated
 
 * **Colour images**: an 8-bit one is written only (no image read, no depth,
-  no hidden coverage). A 32-bit one is drawn as the model draws it with
-  `RDP_CIMG32`, from the programming manual's rules ([cimg32.md](cimg32.md),
+  no hidden coverage). A 32-bit one is drawn as the model draws it, from
+  the programming manual's rules ([cimg32.md](cimg32.md),
   "Choices"); a 32-bit picture is shown at five bits a channel.
 * **Depth**: the memory's dz is kept to its top two bits, as the word has
   room for, and the blender's coverage weight does not use it.
@@ -572,7 +569,7 @@ the alpha byte's top three bits as its coverage, so the filters see what a
 | a frame in software | `sim/rdp/rdp_task` (`make`) | a captured task dump through the RSP's model (`sim/rsp`) and the reference model, to a PPM; `-n` counts the commands by opcode, `-v` lists them, `rdp_stats.py` summarises what the primitives use |
 | RTL against the model, captured tasks | `sim/rdp/build_rtl.sh`, `obj_rdp/tb_rdp task...` | the RSP model's commands go to both, each with its own copy of memory; every byte, hidden plane included, must match |
 | RTL against the model, random | `tb_rdp -r SEED [N]` | random state, loads of every kind from any alignment, triangles and rectangles in every cycle type |
-| 32-bit colour images | `TB_C32=1 tb_rdp -r SEED [N]`; `C32=0 ./build_rtl.sh`; `make rdp_task_cimg32` | random streams into a 32-bit colour image at widths 320, 296, 640 and 1,000 (the wide ones' spans in two halves); without them, the RTL (its parameter `CIMG32` at 0) and the model (no `RDP_CIMG32`) both |
+| 32-bit colour images | `TB_C32=1 tb_rdp -r SEED [N]` | random streams into a 32-bit colour image at widths 320, 296, 640 and 1,000 (the wide ones' spans in two halves) |
 | the texture LOD | `TB_LOD=1 tb_rdp -r SEED [N]` | random streams made for the LOD (2-cycle mostly, DaDy on the scale of DaDx, the LOD blend combiner, the minimum level) |
 | the combiner's arithmetic | `sim/rdp/cc_unit.sh` | the functions between `cc_begin` and `cc_end` of `rdp_pix.v`, extracted and compared with the model's over a stride of the operand space and random operands |
 | the dither | `sim/rdp_dither/tb_dither.sv`, `gradient_test.c` | the threshold table and the adder for every value; a shaded gradient through the model for each RGB_DITHER_SEL |

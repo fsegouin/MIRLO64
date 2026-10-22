@@ -1,7 +1,7 @@
-/* 32-bit colour images in the model (RDP_CIMG32; mrdp.h, docs/cimg32.md): worked cases against the rules the
+/* 32-bit colour images in the model (mrdp.h, docs/cimg32.md): worked cases against the rules the
  * N64 programming manual gives for them, and one scene drawn into a 16-bit image and a 32-bit one, compared pixel by
  * pixel.
- *   cc -O2 -DMRDP_N64 -DRDP_CIMG32 -I. test_cimg32.c mrdp.c -o test_cimg32 && ./test_cimg32
+ *   cc -O2 -DMRDP_N64 -I. test_cimg32.c mrdp.c -o test_cimg32 && ./test_cimg32
  * The rules checked:
  *   - a pixel is a 32-bit word, R G B A from its lowest byte; the depth image stays 16-bit at the same pixel offset
  *   - fill writes the fill colour whole at each pixel and no hidden bits
@@ -25,23 +25,23 @@ static int fails, checks;
 
 #define W 64u                           /* the colour image's width, 32 rows used */
 #define H 32u
-#define CIMG16 0x10000u
-#define CIMG32 0x20000u
+#define IMG16  0x10000u
+#define IMG32  0x20000u
 #define ZIMG   0x40000u
 #define TIMG   0x50000u
 static void cmd(uint32_t w0, uint32_t w1) { mrdp_push(&R, w0); mrdp_push(&R, w1); }
 static uint32_t px32(int x, int y)
 {
-    uint32_t a = CIMG32 + ((uint32_t)y * W + (uint32_t)x) * 4u;
+    uint32_t a = IMG32 + ((uint32_t)y * W + (uint32_t)x) * 4u;
     return (uint32_t)rd16(0, a) << 16 | rd16(0, a + 2u);
 }
-static uint16_t px16(int x, int y) { return rd16(0, CIMG16 + ((uint32_t)y * W + (uint32_t)x) * 2u); }
+static uint16_t px16(int x, int y) { return rd16(0, IMG16 + ((uint32_t)y * W + (uint32_t)x) * 2u); }
 static unsigned hid16(uint32_t a)
 {
     uint32_t k = (a >> 1) & 15u, ha = MRDP_HID_BASE + ((a >> 5) << 2) + (k < 8u ? 2u : 0u);
     return (rd16(0, ha) >> (2u * (k & 7u))) & 3u;
 }
-static unsigned cvg16(int x, int y) { uint32_t a = CIMG16 + ((uint32_t)y * W + (uint32_t)x) * 2u; return (px16(x, y) & 1u) << 2 | hid16(a); }
+static unsigned cvg16(int x, int y) { uint32_t a = IMG16 + ((uint32_t)y * W + (uint32_t)x) * 2u; return (px16(x, y) & 1u) << 2 | hid16(a); }
 static void ok(int good, const char *fmt, const char *what, int x, int y, uint32_t got, uint32_t want)
 {
     checks++;
@@ -66,7 +66,7 @@ static uint16_t c5551(unsigned r, unsigned g, unsigned b, unsigned a) { return (
 #define H_COPY   ((2u << 20) | (3u << 6) | (3u << 4))
 #define H_FILL   ((3u << 20) | (3u << 6) | (3u << 4))
 /* SET_COLOR_IMAGE: RGBA, size 2 (16-bit) or 3 (32-bit) */
-static void cimg(unsigned size) { cmd(0x3F000000u | size << 19 | (W - 1), size == 3 ? CIMG32 : CIMG16); }
+static void cimg(unsigned size) { cmd(0x3F000000u | size << 19 | (W - 1), size == 3 ? IMG32 : IMG16); }
 /* the frame: memory cleared, the depth image at the far plane, the colour image filled with a complete background */
 static void frame(unsigned size, uint32_t bg32, uint32_t bg16x2)
 {

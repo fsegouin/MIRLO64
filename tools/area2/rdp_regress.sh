@@ -17,7 +17,7 @@ for s in 31 32 33; do TB_C8=1 run ./obj_rdp/tb_rdp -r $s 200; done
 for s in 34 35; do TB_C8=1 TB_CW=292 run ./obj_rdp/tb_rdp -r $s 200; done
 TB_C8=1 TB_SDRAM=1 TB_CPU=30 run ./obj_rdp/tb_rdp -r 36 150
 # a 32-bit colour image (TB_C32: widths 320, 296, 640 and 1000 by the seed, a wide one's spans in two halves), and with
-# the SoC's memory (with C32=0 both drop what is drawn into it)
+# the SoC's memory
 for s in 41 42 43 44 45 46 47 48; do TB_C32=1 run ./obj_rdp/tb_rdp -r $s 200; done
 for s in 49 50; do TB_C32=1 TB_SDRAM=1 TB_CPU=30 run ./obj_rdp/tb_rdp -r $s 150; done
 # the combiner's arithmetic: random streams that make it visible (TB_CC), and the functions on their own

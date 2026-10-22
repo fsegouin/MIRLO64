@@ -5,12 +5,9 @@ its title screens, from the "No Controller Pak" screen on. Three parts make that
 
 | Part | Where | State |
 |---|---|---|
-| The model | `lang/c/mrdp/mrdp.c`, behind `RDP_CIMG32` (off by default) | done; `lang/c/mrdp/test_cimg32.c` |
+| The model | `lang/c/mrdp/mrdp.c`, the N64's pixel pipeline (`MRDP_N64`) | done; `lang/c/mrdp/test_cimg32.c` |
 | The scan-out | `rtl/soc/n64_video.sv`, `rtl/soc/rcp_vi.sv`, `rtl/soc/mirlo_mips.sv`, the runtime's `lang/n64rt/n64rt_io.c` | done |
-| The RDP | `rtl/rdp/rdp_top.v`, `rdp_pix.v`, `rdp_mem.v` | done (its parameter `CIMG32`, 1 by default; "Implementation" below) |
-
-With `rdp_top`'s parameter `CIMG32` at 0, and in the model built without `RDP_CIMG32`, a primitive sent while the
-colour image is a 32-bit one is dropped, as before.
+| The RDP | `rtl/rdp/rdp_top.v`, `rdp_pix.v`, `rdp_mem.v` | done ("Implementation" below) |
 
 ## The rules
 
@@ -24,7 +21,7 @@ The public description is the N64 programming manual's blender section (15.5). W
   off in 32-bit mode "so the 3 LSBs do not get stepped on".
 - "You cannot copy the 32-bit RGBA color image type."
 
-The model (`RDP_CIMG32`, which needs `MRDP_N64` and the blender) follows them:
+The model (`MRDP_N64`, with the blender) follows them:
 
 | What | Rule |
 |---|---|
@@ -42,7 +39,7 @@ The model (`RDP_CIMG32`, which needs `MRDP_N64` and the blender) follows them:
 
 - **The RGB dither applies to 32-bit images.** The manual says so (above), so the model runs the same `dither_n64` as
   for a 16-bit image: each channel either keeps its eight bits or goes up to the next multiple of 8 (255 at most),
-  and the result is written whole. One define, `CIMG32_DITHER` in `mrdp.c`, turns it off. Doom 64's title has the dither
+  and the result is written whole, as the RTL does. One define, `CIMG32_DITHER` in `mrdp.c`, turns it off in the model. Doom 64's title has the dither
   off (`RGB_DITHER_SEL` 3), so its pixels do not depend on this choice.
 - **The alpha byte's low five bits are written 0.** The manual puts the coverage in the top three and says nothing of
   the rest; the pixel's own alpha is not stored, as it is not in a 16-bit image.
@@ -68,11 +65,7 @@ coverage at every pixel, wherever the memory colours the scene reads are multipl
 test_cimg32: 31 checks, 0 failed
 ```
 
-With the switch off, `mrdp.c` compiles to the same object, byte for byte, with `-DMRDP_N64`, with `-DMRDP_N64
--DRDP_LOD`, with `-DMRDP_N64 -DMRDP_NO_BLEND` and with no define; `sim/rdp/rdp_task` gives the same PPM and the same
-log for every one of the 79 dumps under `build/triage/*/dumps*`, and `tools/area2/rdp_regress.sh` passes (53 runs, before it had
-its 32-bit runs).
-`sim/rdp/rdp_task_cimg32` (`make rdp_task_cimg32`) draws Doom 64's four title tasks: 88,895 pixels each, the
+`sim/rdp/rdp_task` (`make`) draws Doom 64's four title tasks: 88,895 pixels each, the
 "No Controller Pak" screen's 101 glyph rectangles.
 
 ## The scan-out
@@ -136,7 +129,7 @@ that leaves the input unconnected (0) shows every picture as 16-bit, as before.
 
 ## The RDP: design
 
-What `rdp_top.v`, `rdp_pix.v` and `rdp_mem.v` need, so that the RTL writes what the model writes with `RDP_CIMG32`
+What `rdp_top.v`, `rdp_pix.v` and `rdp_mem.v` need, so that the RTL writes what the model writes
 (the regression compares them word for word). The pixel pipeline itself does not change: it already works on 8-bit
 channels and expands a 16-bit memory pixel to 32 bits (`un565`); only the edges, where pixels come from and go to
 memory, learn a second format.
@@ -212,7 +205,7 @@ widths (Cyclone V: about two 2-to-1 bits an ALM), to be replaced by `tools/area2
 
 ### Its verification
 
-- `sim/rdp`'s `tb_rdp` with `-DRDP_CIMG32` in its model, and a `TB_C32=1` mode as `TB_C8=1` is for an 8-bit image
+- `sim/rdp`'s `tb_rdp` with a `TB_C32=1` mode as `TB_C8=1` is for an 8-bit image
   (the random streams drawn into a 32-bit colour image, at widths 292, 296 and 320, with and without the SoC's memory
   timing); `tools/area2/rdp_regress.sh` gains those runs.
 - `tb_rdp` on Doom 64's fourth task (`build/triage/doom/dumps/task_gfx_003.bin`): "RTL == model" and 88,895 pixels.
@@ -220,11 +213,8 @@ widths (Cyclone V: about two 2-to-1 bits an ALM), to be replaced by `tools/area2
 
 ## Implementation
 
-The RTL draws into a 32-bit colour image as the model does with `RDP_CIMG32` (and its `CIMG32_DITHER` at 1), word for
-word, with no new block RAM and no DSP block. `rdp_top`'s parameter `CIMG32` (1 by default) turns it off: a primitive
-into a 32-bit image is then dropped as before, and the RTL is clock for clock the RTL before the change.
-`sim/rdp/build_rtl.sh` and `sim/rdp/Makefile` take a switch `C32` (1 by default) that builds the model with
-`RDP_CIMG32` and sets the parameter; `C32=0` builds both without it.
+The RTL draws into a 32-bit colour image as the model does (with its `CIMG32_DITHER` at 1), word for word, with no
+new block RAM and no DSP block.
 
 ### As built, against the design
 
@@ -276,7 +266,7 @@ in copy mode into one draws nothing and counts no pixel, as the model.
 ### Resources and timing
 
 `tools/area2/ooc.sh rdp` (from a copy whose project directory is under `build/c32`), then the unit fitted with every
-pin virtual and a 16 ns clock, three seeds, as sim/area_study.md ("CIMG32") has it. Before: the tree as the LOD left
+pin virtual and a 16 ns clock, three seeds, as sim/area_study.md ("32-bit colour images") has it. Before: the tree as the LOD left
 it.
 
 | RDP | ALUTs | registers | block memory bits | RAM blocks | DSP | fitted ALMs, seeds 1 / 2 / 3 | worst setup slack, seeds 1 / 2 / 3 |
@@ -292,13 +282,11 @@ endpoints had before.
 
 ### How it was checked
 
-- `tools/area2/rdp_regress.sh`: `rdp_regress: 63 runs, 0 failed`, with `C32=1` and with `C32=0`: its 53 runs and ten
-  with `TB_C32=1` (eight seeds over the four widths, two with `TB_SDRAM=1 TB_CPU=30`; with `C32=0` both sides drop
-  their primitives). Its other random streams switch the colour image to a random size now and then, so with `C32=1`
-  they draw into 32-bit images too.
-- `tb_rdp -r SEED 300`, seeds 100 to 130: all `RTL == model`, with `C32=1` and with `C32=0`; with `C32=0` the output
-  is the pre-change bench's to the clock, and with `C32=1` too but for the three seeds that switch to a 32-bit image
-  (120, 122, 129), which now draw more pixels.
+- `tools/area2/rdp_regress.sh`: `rdp_regress: 63 runs, 0 failed`: its 53 runs and ten with `TB_C32=1` (eight seeds
+  over the four widths, two with `TB_SDRAM=1 TB_CPU=30`). Its other random streams switch the colour image to a
+  random size now and then, so they draw into 32-bit images too.
+- `tb_rdp -r SEED 300`, seeds 100 to 130: all `RTL == model`, and the output is the pre-change bench's to the clock
+  but for the three seeds that switch to a 32-bit image (120, 122, 129), which now draw more pixels.
 - `TB_C32=1` (new in `tb_rdp`): random streams into a 32-bit colour image, at widths 320, 296, 640 and 1,000 by the
   seed (`TB_CW` to choose one); a wide image's scissor and primitives span its width, so the 640 and 1,000 wide streams
   draw hundreds of spans in two halves each. Seeds 1 to 40: all `RTL == model`; and 28 more with `TB_LFSR=1 TB_STEP=1`,
@@ -306,8 +294,8 @@ endpoints had before.
 - `TB_LOD=1`, seeds 1 to 12: all `RTL == model`.
 - The 88 captured task dumps under `build/triage/*/dumps*` and `build/lod_dumps/*/`: all `RTL == model` (and with
   `TB_SDRAM=1 TB_CPU=30`). Every `TB_CMDT` log of those that do not draw into a 32-bit image is byte for byte the
-  pre-change RTL's; with `C32=0`, all are. Doom 64's four tasks now draw 88,895 pixels each (88,895 writes,
-  175,130 clocks against 38,133), and the picture from the RTL's memory is `rdp_task_cimg32`'s, byte for byte: the
+  pre-change RTL's. Doom 64's four tasks now draw 88,895 pixels each (88,895 writes,
+  175,130 clocks against 38,133), and the picture from the RTL's memory is `rdp_task`'s, byte for byte: the
   "No Controller Pak" screen.
 - The whole SoC (`sim/mips_soc`, a bench built with this RTL, `FB_N64=1 VGA=1`): Super Mario 64 for 300M cycles gives
   frames byte for byte those of a bench built with the RTL before the change. Doom 64 (PAL) for 625M cycles with a

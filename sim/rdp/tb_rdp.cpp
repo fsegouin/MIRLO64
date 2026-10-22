@@ -11,7 +11,7 @@
 // random texture image at any alignment, triangles and rectangles in every
 // cycle type): what real tasks do not reach.
 //   TB_STEP=1   compare after every command, stop at the first that differs
-//   TB_C32=1    random streams into a 32-bit colour image (docs/cimg32.md; the model built with RDP_CIMG32)
+//   TB_C32=1    random streams into a 32-bit colour image (docs/cimg32.md)
 #include "Vrdp_top.h"
 #include "Vrdp_top___024root.h"
 #include "verilated.h"
