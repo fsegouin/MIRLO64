@@ -197,10 +197,9 @@ with captured frames.
   from this one, writes the same PPM, byte for byte, for each of the 65
   frames that the 79 captured task dumps of five games under `build/triage`
   give (16.5 million pixels). None of the dumps draws a 2-cycle primitive
-  with TEX_LOD, and no combiner reads LOD_FRACTION. The dumps in
-  `build/triage/pd2` set TEX_LOD 32 times each, all in 1-cycle mode, and
-  every triangle there has a level count of 0: on the console too the tile
-  would not move.
+  with TEX_LOD, and no combiner reads LOD_FRACTION. One title's dumps set
+  TEX_LOD 32 times each, all in 1-cycle mode, and every triangle there has a
+  level count of 0: on the console too the tile would not move.
 * **`test_lod`**: the steps above, and a perspective floor in 2-cycle mode
   with a mip chain of six levels (32 x 32 down to 1 x 1, each a checker of its
   own colour), combined as `(TEXEL1 - TEXEL0) * LOD_FRACTION + TEXEL0`. The
@@ -533,12 +532,12 @@ The RTL against the model (`build_rtl.sh`):
   divide made the console's.
 * The whole SoC (`sim/mips_soc`, `FB_N64=1 VGA=1 -e 60`, a bench built with
   this RTL against `obj_soc` and against one built with the RTL before the LOD
-  with only its perspective divide made the console's): Super Mario 64, 300M
-  cycles, runs to the end (288 frames, the CPU at 80246ddc as on `obj_soc`);
-  its five frame dumps are byte for byte the second bench's, and `obj_soc`'s
-  but for frame 240 (the title's 3D logo: 1,642 single pixels, the perspective
-  divide's subtexels). Pokemon Snap, 625M cycles (600 frames): its ten frame
-  dumps are byte for byte the second bench's (no LOD primitive draws in its
-  opening); against `obj_soc` frames 180 to 540 differ in 3,639 to 8,327
-  scattered pixels over the textured ground and trees, the same picture: the
-  perspective divide again.
+  with only its perspective divide made the console's): a 3D platformer's
+  boot, 300M cycles, runs to the end (288 frames, the CPU at 80246ddc as on
+  `obj_soc`); its five frame dumps are byte for byte the second bench's, and
+  `obj_soc`'s but for frame 240 (the title screen's 3D logo: 1,642 single
+  pixels, the perspective divide's subtexels). A second game, 625M cycles
+  (600 frames): its ten frame dumps are byte for byte the second bench's (no
+  LOD primitive draws in its opening); against `obj_soc` frames 180 to 540
+  differ in 3,639 to 8,327 scattered pixels over the textured ground and
+  trees, the same picture: the perspective divide again.

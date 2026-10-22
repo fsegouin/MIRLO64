@@ -345,7 +345,7 @@ static void rand_combine()
 }
 static void rand_stream(unsigned seed, int n)
 {
-    // TB_CW=<w>: the colour image's width (320; Banjo-Kazooie's is 292: rows share hidden-plane groups)
+    // TB_CW=<w>: the colour image's width (320; one game's is 292: rows share hidden-plane groups)
     static const unsigned cw1 = getenv("TB_CW") ? (unsigned)atoi(getenv("TB_CW")) - 1u : 319u;
     // TB_C8=1: the colour image an 8-bit one (a byte a pixel), as software draws a colour-indexed texture
     static const unsigned csz = getenv("TB_C8") && atoi(getenv("TB_C8")) ? 1u : 2u;

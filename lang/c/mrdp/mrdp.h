@@ -103,7 +103,7 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
  *                [23:22] M0 [21:20] M1 [19:18] B0 [17:16] B1 */
 
 /* CVG_X_ALPHA without anti-aliasing: coverage is alpha's top 3 bits, and a
- * pixel with no coverage is not drawn (SM64's TEX_EDGE cut-outs). */
+ * pixel with no coverage is not drawn (TEX_EDGE cut-outs). */
 #define MRDP_CVG_ALPHA_MIN 32
 
 /* MRDP_N64 (unless MRDP_NO_BLEND): the N64's coverage -- anti-aliasing as the

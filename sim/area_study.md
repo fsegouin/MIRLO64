@@ -380,7 +380,7 @@ verdict on either; `pi2_test` prints `FAIL ROM reads, KSEG1: got 00000040 want
 A COP0 program written for this outside the repository (reset values, each
 register written and read back at once and later, Config's merge, LL then
 mfc0 LLAddr at once, tlbp and tlbr; 196 values) prints the same on both, with
-the same clock count. Super Mario 64 for 300M cycles (`FB_N64=1 tb_soc
+the same clock count. A 3D platformer for 300M cycles (`FB_N64=1 tb_soc
 lang/n64rt/build/n64rt.bin -c 300 -e 60`): the five frame dumps and the log
 (288 frames, the CPU at 80246ddc) are byte for byte those of the unchanged
 tree, and of `obj_soc`, which gives the unchanged tree's too. Those SoC runs
@@ -417,7 +417,7 @@ compared by the lowest and the mean of its three fits.
 |---|---|---|---|---|---|---|---|
 | CPU | baseline (C0RAM code removed) | | 7,532 | 3,094 (3,006 / 3,002 / 3,005) | 4,425 | 4,760 / 4,750 / 4,750 | |
 | CPU | `ms_data` (the slow path's read) in its own block | reverted | 7,497 (-35) | 3,094 (3,006) | | 4,785 / 4,758 / 4,766 (mean +17) | 15 programs identical |
-| CPU | the FPU's product in a register of its own (`mprod`) | kept | 7,483 (-49) | 3,112 (2,977 / 2,979 / 2,978) | 4,395 (-30) | 4,764 / 4,745 / 4,742 (lowest -8, mean -3) | 15 programs, 4 more, SM64 identical |
+| CPU | the FPU's product in a register of its own (`mprod`) | kept | 7,483 (-49) | 3,112 (2,977 / 2,979 / 2,978) | 4,395 (-30) | 4,764 / 4,745 / 4,742 (lowest -8, mean -3) | 15 programs, 4 more, the 3D platformer identical |
 | RSP | (round 2's `p_r` in place) | nothing left | 5,930 | 1,968 (1,697) | 4,196 | 4,554 | |
 | RDP | survey only | | | | | | |
 
@@ -459,7 +459,7 @@ Verification of the kept FPU change, against the unchanged tree's bench,
 both run with the same ROM file: the 15 SoC programs byte for byte the same
 (13 PASS, `vi_test` no verdict, `pi2_test` its usual FAIL on both), and
 `fpu64_test`, `cvtl_test`, `ddiv_test` (built from a copy of `lang/`, PASS on
-both) and the COP0 program of round 2, the same; Super Mario 64 for 300M
+both) and the COP0 program of round 2, the same; the 3D platformer for 300M
 cycles: the five frames and the log byte for byte the same.
 
 **The control signals (item 3 of the round).** Registers by control inputs,

@@ -235,7 +235,7 @@ static mrdp_rgba_t texel_expand(unsigned fmt, uint16_t v)
  * found is word ^ 2), as they did when the row was loaded -- the N64's, which
  * shows when a load's rows are not the tile's: a LOAD BLOCK with dxt 0 loads
  * every row as an even one, and a game that does that keeps its texture's
- * odd rows swapped in the ROM (Pilotwings 64's). */
+ * odd rows swapped in the ROM (a flight game's terrain). */
 static mrdp_rgba_t tmem_fetch(const mrdp_t *r, const mrdp_tile_t *t, int s, int tt)
 {
     const uint16_t *m = r->tmem16;
@@ -413,8 +413,8 @@ typedef struct {
  * positive number in A, B, C and D; the blender's shade alpha is clamped at 255
  * (blend_n64). (With 9 bits, 0..511, a lit surface's shade overshoots 255 at its
  * edges, TEXEL0 * SHADE reached 256 and over, and as COMBINED -- the second
- * cycle's C, ENV * COMBINED -- that is a negative number: black pixels on Link's
- * tunic with Navi's light.)
+ * cycle's C, ENV * COMBINED -- that is a negative number: black pixels on a
+ * character's tunic lit by a moving light.)
  * The result's 9 bits: a colour clamps them (bits 8:7
  * both set -> 0, bit 8 -> 255), an alpha likewise but to 256 for bit 8 and
  * for exactly 255 (cc_alpha_res). */
@@ -539,7 +539,7 @@ static int cc0_uses_texel1(const mrdp_t *r)
 
 /* does the second combiner cycle of a 2-cycle pixel read TEXEL0 (as a colour, or its alpha)? The N64's second cycle takes the
  * first cycle's TEXEL1 there -- the next tile's sample -- so such a pixel needs that sample too (rtl/rdp rdp_pix.v two_pass).
- * Mario Golf's ground: cycle 0 TEXEL0 (an I8 detail tile) * TEXEL1 (the RGBA16 grass), cycle 1 (COMBINED - TEXEL0) * A + TEXEL0 --
+ * A golf course's ground: cycle 0 TEXEL0 (an I8 detail tile) * TEXEL1 (the RGBA16 grass), cycle 1 (COMBINED - TEXEL0) * A + TEXEL0 --
  * the grass itself, which a TEXEL0 of the first tile makes a pale grey-green. */
 static int cc1_uses_texel0(const mrdp_t *r)
 {
@@ -1057,8 +1057,8 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
          * has S = T = W = 0, and the texture stages run all the same: TEXEL0 is the tile's texel at (0, 0) -- what
          * the last texture bound there left (the hardware's command unit starts every primitive with S, T, W at 0
          * and its pixel pipeline never skips the fetch). A combiner that reads TEXEL0 on such a triangle is
-         * not a mistake of the game's: Link's tunic collar (object_link_child, gLinkChildCollarNearDL: G_TEXTURE off,
-         * combiner TEXEL0 * SHADE, then ENV * COMBINED) is drawn that way, and with TEXEL0 = 0 it was black. */
+         * not a mistake of the game's: a character's collar (G_TEXTURE off, combiner TEXEL0 * SHADE, then
+         * ENV * COMBINED) is drawn that way, and with TEXEL0 = 0 it was black. */
         int32_t s = 0, t = 0;
         if (!pr->tex) { }
         else if (pr->texrect) { s = (int16_t)at[AS]; t = (int16_t)at[AT]; }

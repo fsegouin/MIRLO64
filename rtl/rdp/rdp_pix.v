@@ -13,7 +13,7 @@
 // sequencer drains the pipe before a state command).
 //
 // TEXEL1: a 2-cycle pixel whose first combiner cycle reads TEXEL1, or whose second reads TEXEL0 (the N64's second cycle takes the
-// first cycle's TEXEL1 there: Mario Golf's ground, an I8 detail tile times the RGBA16 grass, then the grass itself) (two_pass:
+// first cycle's TEXEL1 there: a golf course's ground, an I8 detail tile times the RGBA16 grass, then the grass itself) (two_pass:
 // the skybox's day / night blend, a terrain's second layer) goes through the
 // texture stages twice, a clock apart -- the tile's sample, then the next
 // tile's (the same S, T) -- and leaves P9 once, with both. rdp_top
@@ -253,7 +253,7 @@ module rdp_pix (
     reg [31:0] s0r, t0r, w0r;
     reg [35:0] shade0;
     // the shade, as the interpolator gives it, saturated to a byte -- 0 below 0, 255 above -- and carried as 9 bits (bit 8 clear).
-    // A shade past 255 (a highlight's overshoot at a lit surface's edge: Link's tunic with Navi's light) never goes into the
+    // A shade past 255 (a highlight's overshoot at a lit surface's edge: a character's tunic lit by a moving light) never goes into the
     // combiner as it is: with 9 bits TEXEL0 * SHADE overshot 255 and, read as COMBINED in the second cycle of a 2-cycle
     // combiner (ENV * COMBINED), it became negative: black pixels.
     wire [8:0] sr9 = {1'b0, clamp8($signed(in_r[31:16]))}, sg9 = {1'b0, clamp8($signed(in_g[31:16]))};
@@ -292,7 +292,7 @@ module rdp_pix (
             cvg0 <= cvg_in; y0 <= row_y; g0 <= in_ghost;
         end
         // (a primitive without texture coefficients has S = T = W = 0 and samples the tile's texel (0, 0) all the same: the model's
-        // draw_pixel_cvg; Link's collar is one. With the LOD the second clock takes S, T, W on the next line, which rdp_top
+        // draw_pixel_cvg; a character's collar is one. With the LOD the second clock takes S, T, W on the next line, which rdp_top
         // gives while it waits: S = T = W = 0 there too)
         if (!dup0 || lod_on) begin
             s0r <= p_tex ? in_s : 32'd0; t0r <= p_tex ? in_t : 32'd0; w0r <= p_tex ? in_w : 32'd0;
@@ -1466,7 +1466,7 @@ module rdp_pix (
     // the way to the next step goes up in one of eight places of the matrix),
     // or noise (2: three random bits for each channel, the LFSR's [2:0], [5:3]
     // and [8:6] as the pixel's alpha dither sees it, carried here in nz1..nz5:
-    // the console's dither calculation -- OoT's dust, SETUPDL_0, G_CD_NOISE, was
+    // the console's dither calculation -- a game's dust, G_CD_NOISE, was
     // drawn as an ordered checker screen with the matrix in its place); 3: off.
     // Without it a smooth shaded or lit surface is cut into flat bands of one
     // of 32 levels. Copy and fill write their colors untouched. The three low
