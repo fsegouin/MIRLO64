@@ -895,7 +895,10 @@ wire        e_lt   = FAST ? ((e_a[31] != e_bv[31]) ? e_a[31] : e_cs[31]) : $sign
 wire        e_ltu  = FAST ? !e_cs[32] : e_a < e_bv;
 wire        e_eq   = e_a == e_bv;
 wire [5:0]  e_fn  = e_insn[5:0];
-wire [4:0]  e_sh  = (e_fn == 6'h04 || e_fn == 6'h06 || e_fn == 6'h07) ? e_a[4:0] : e_insn[10:6];
+// (FAST: whether the amount is rs's -- sllv, srlv, srav -- is a register set with e_insn, e_k_shv, so the shifter's
+// amount is one select after rs's forwarding and no decode of e_insn sits in front of it)
+logic       e_k_shv;
+wire [4:0]  e_sh  = (FAST ? e_k_shv : (e_fn == 6'h04 || e_fn == 6'h06 || e_fn == 6'h07)) ? e_a[4:0] : e_insn[10:6];
 
 // one shifter: SRL/SRA directly, SLL as a right shift of the bit-reversed value
 function automatic logic [31:0] rev32(input logic [31:0] v);
@@ -1967,6 +1970,7 @@ always_ff @(posedge clk) begin
             e_bp <= d_k_pred && f_deliver;
             e_ptarget <= d_ptarget;
             e_k_grp <= 2'd3; e_k_op <= 3'd1; e_k_f <= 1'b0;                 // (nothing)
+            e_k_shv <= d_insn[5:0] == 6'h04 || d_insn[5:0] == 6'h06 || d_insn[5:0] == 6'h07;
             e_k_sub <= d_cx.alu != A_ADD;                                   // (the adder subtracts: sub, and for the compares)
             case (d_cx.alu)
             A_ADD:  e_k_grp <= 2'd0;

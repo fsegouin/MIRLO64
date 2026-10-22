@@ -198,7 +198,8 @@ exceptions) and W (write-back), with forwarding into E from M and W. With `FAST`
 - **M**: a load takes the D-cache's word before its tag is compared. A load of the wrong line is not written back; the
   line is read and the instruction runs again from its fetch. A load in a delay slot waits one cycle for its tag
   instead.
-- E's forwarding selects, the ALU's result kind and M's kind of access are registers set one stage ahead.
+- E's forwarding selects, the ALU's result kind, whether a shift's amount is a register's and M's kind of access are
+  registers set one stage ahead.
 
 Nothing a cache tag says reaches the pipeline's advance. Multiplies and divides run in the background with HI and LO
 interlocked: `mult(u)` is one product of the DSP block, in HI and LO two cycles later; `div(u)` is a bit a cycle.
