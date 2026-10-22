@@ -2,10 +2,10 @@
 CC ?= cc
 CFLAGS ?= -O2 -g -Wall -Wextra -Wno-unused-function
 ROOT := $(abspath ../..)
-# MRDP_DIR=<dir>: another copy of the model; ORACLE_DIR: where setup.sh put the oracle
-MRDP_DIR ?= $(ROOT)/lang/c/mrdp
+# MODEL_DIR=<dir>: another copy of the model; ORACLE_DIR: where setup.sh put the oracle
+MODEL_DIR ?= $(ROOT)/lang/c/mrdp
 ORACLE_DIR ?= $(ROOT)/build/oracle/src
-M := $(abspath $(MRDP_DIR))
+M := $(abspath $(MODEL_DIR))
 ORC := $(abspath $(ORACLE_DIR))/src/core
 B := build
 # the oracle's source: its own warnings are not ours
@@ -40,9 +40,9 @@ $(B)/rdpo: rdpo.c $(B)/oracle.o $(M)/mrdp.c $(M)/mrdp.h | $(B)
 $(B)/rdpo_lod: rdpo.c $(B)/oracle.o $(B)/mrdp_hooked.c $(M)/mrdp.h | $(B)
 	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_LOD -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
 
-# the model with MRDP_EXACT (docs/rdp_exact.md: the console's rules, which the RTL does not follow yet), and the LOD
+# the model with RDP_EXACT (docs/rdp_exact.md: the console's rules, which the RTL does not follow yet), and the LOD
 $(B)/rdpo_exact: rdpo.c $(B)/oracle.o $(B)/mrdp_hooked.c $(M)/mrdp.h | $(B)
-	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_LOD -DMRDP_EXACT -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
+	$(CC) $(CFLAGS) -DMRDP_N64 -DRDP_LOD -DRDP_EXACT -I$(M) rdpo.c $(B)/mrdp_hooked.c $(B)/oracle.o -o $@
 
 $(B)/rdpgen: rdpgen.c | $(B)
 	$(CC) $(CFLAGS) -Wno-missing-field-initializers rdpgen.c -lm -o $@

@@ -1,12 +1,12 @@
 # The model's LOD against the oracle: results
 
-The model: `lang/c/mrdp/mrdp.c` without `MRDP_EXACT` (and so with its own
+The model: `lang/c/mrdp/mrdp.c` without `RDP_EXACT` (and so with its own
 perspective divide, not `RDP_EXACT_DIV`), built with `MRDP_N64` and
 `RDP_LOD` (`rdpo_lod`; `rdpo` without the LOD). The oracle and how both are
 driven: [README.md](README.md). Every number below is from `./run.sh 50`; the
 same streams give the same numbers built with gcc in the tools image.
 
-Built with `MRDP_EXACT` (`rdpo_exact`) the model has every change below and
+Built with `RDP_EXACT` (`rdpo_exact`) the model has every change below and
 the pre-existing ones listed at the end, and agrees with the oracle on every
 suite (0 colour, coverage and depth words differ; every LOD pixel takes the
 oracle's inputs and result), on every stream of `streams/`, and on 78 of the
@@ -28,31 +28,32 @@ the RTL must change.
   1. A texture rectangle's next line (choice 6): the oracle steps it by DtDy
      kept to the same 17 bits as a triangle's DaDy; the model takes the exact
      next row. Fix: `model_fix_texrect.patch` (one block in `draw_texrect`);
-     with it every texture rectangle LOD agrees (173,939 pixels). `MRDP_EXACT`
+     with it every texture rectangle LOD agrees (173,939 pixels). `RDP_EXACT`
      rule 2.
   2. The perspective divide at the three points (choice 4): the oracle divides
      the 16-bit integer halves of S, T and W with the console's reciprocal
-     table; the model divides more bits with its own reciprocal. S and T differ
-     by a few subtexels and with them the fraction, and near a power of two the
-     level. Fix: `model_fix_divide.patch` (the console's divide, for the pixel
-     and the three points alike); with it test_lod's floor goes from 21 to
-     169,020 of 183,660 LOD pixels agreeing. It also removes most of the
-     pre-existing perspective texel differences: on the 79 captured task dumps
-     the differing colour words go from 222,778 to 10,506. `MRDP_EXACT` rule 1.
+     table; the model divides more bits with its own reciprocal. S and T
+     differ by a few subtexels and with them the fraction, and near a power of
+     two the level. Fix: `model_fix_divide.patch` (the console's perspective
+     divide, for the pixel and the three points alike); with it test_lod's
+     floor goes from 21 to 169,020 of 183,660 LOD pixels agreeing. It also
+     removes most of the pre-existing perspective texel differences: on the 79
+     captured task dumps the differing colour words go from 222,778 to 10,506.
+     `RDP_EXACT` rule 1.
   3. 1-cycle mode (choice 7), and copy mode: the oracle computes an LOD in
      both (from the next pixel and the one after it), and with TEX_LOD moves
      TEXEL0's tile; the model computes none. At a level count of 0 without
      DETAIL it changes nothing (random streams; and the pd2 dumps, which set
      TEX_LOD in 1-cycle mode at level count 0, are identical), but with DETAIL
      the tile moves a tile on even at level count 0, and a 1-cycle combiner
-     that reads LOD_FRACTION gets a value. The rule is below; `MRDP_EXACT`
+     that reads LOD_FRACTION gets a value. The rule is below; `RDP_EXACT`
      rule 3.
   4. The second cycle's TEXEL1 (choice 8, known): the oracle's is the next
-     pixel's first texel. `MRDP_EXACT` rule 7.
-* **Pre-existing, not the LOD** (briefly, at the end): the divide (above), the
-  attribute (S, T, W, shade, Z) interpolation's rounding, an untextured
-  triangle with PERSP, edges past 2048 pixels, a fill rectangle at the
-  scissor's right edge, texture rectangles' partial-pixel coverage, copy
+     pixel's first texel. `RDP_EXACT` rule 7.
+* **Pre-existing, not the LOD** (briefly, at the end): the perspective divide
+  (above), the attribute (S, T, W, shade, Z) interpolation's rounding, an
+  untextured triangle with PERSP, edges past 2048 pixels, a fill rectangle at
+  the scissor's right edge, texture rectangles' partial-pixel coverage, copy
   mode's clamp. Flat and anti-aliased triangles (edges, coverage, hidden bits)
   are identical.
 
@@ -63,9 +64,9 @@ the RTL must change.
 | 1 | `LOD_DY_MASK`: DaDy of S, T, W kept to its top 17 bits | the same: `dsdy & ~0x7fff` (and `dtdy`, `dwdy`), added to the pixel's 32-bit S, T, W, then `>> 16` | yes (the `units` steps with a DtDy fraction of 0x7C00 and 0x8000; the model built with all of DaDy differs there) |
 | 2 | `LOD_ONES_ABS`: a negative step counts its ones' complement | the same: an 18-bit difference of the two 17-bit values, `~d & 0x1ffff` when negative; a step of -1 texel is magnified | yes (units "-1 texel", "-2.5", "-1 texel line"; the model built with `\|d\|` fails 11,296 of the units' LODs) |
 | 3 | `LOD_FRAC_USED`: the fraction is computed whenever a combiner reads it, TEX_LOD or not | in 2-cycle mode the same: LOD when TEX_LOD, or either cycle's RGB C is LOD_FRACTION (13) or its alpha C is (0, LOD_FRACTION). In 1-cycle mode also when the one cycle reads it (item 3 below) | yes in 2-cycle (`frac2`: 1.95 million pixels, no logic difference); 1-cycle: see choice 7 |
-| 4 | the divide: the model's own reciprocal, the 17-bit range check, W's integer half <= 0 out of range | the console's divide on the 16-bit integer halves of S, T, W (W normalised by its leading zeros, up to 14; a 64-entry point and slope table, a 15-bit reciprocal; the product shifted back). Out of range when the product's bits above the 17 kept are not all its sign, or W's integer half is <= 0 | **no**: the range rule agrees (6 of 4.35 million pixels differed in the range flag, each because the values differed at the boundary: 4 from the divide, 2 from W's interpolation, its integer half 0 on one side and 1 on the other), the values do not. Disagreement 2 |
+| 4 | the perspective divide: the model's own reciprocal, the 17-bit range check, W's integer half <= 0 out of range | the console's perspective divide on the 16-bit integer halves of S, T, W (W normalised by its leading zeros, up to 14; a 64-entry point and slope table, a 15-bit reciprocal; the product shifted back). Out of range when the product's bits above the 17 kept are not all its sign, or W's integer half is <= 0 | **no**: the range rule agrees (6 of 4.35 million pixels differed in the range flag, each because the values differed at the boundary: 4 from the perspective divide, 2 from W's interpolation, its integer half 0 on one side and 1 on the other), the values do not. Disagreement 2 |
 | 5 | the walk: the next pixel is x + 1 with `lft`, x - 1 without | the same (`flip`: DaDx toward the walk, negated without `lft`) | yes (units, right-major, ±1 texel; the model built with the direction swapped fails 38 of the units' 164 primitives) |
-| 6 | texture rectangles: level count 0, walked left to right, the next pixel and line from the rectangle's own formula, no divide | level count 0 and left to right, no divide: the same. The next line: the oracle's rectangle is a primitive whose DaDy is DtDy (DsDx when flipped) and is kept to the 17 bits as a triangle's: `(T32 + ((DtDy << 11) & ~0x7FFF)) >> 16`, T32 the row's T with its fraction | **no** for the next line (9.5 % of rectangle LOD pixels took another T there, a quarter of them another result). Disagreement 1 |
+| 6 | texture rectangles: level count 0, walked left to right, the next pixel and line from the rectangle's own formula, no perspective divide | level count 0 and left to right, no perspective divide: the same. The next line: the oracle's rectangle is a primitive whose DaDy is DtDy (DsDx when flipped) and is kept to the 17 bits as a triangle's: `(T32 + ((DtDy << 11) & ~0x7FFF)) >> 16`, T32 the row's T with its fraction | **no** for the next line (9.5 % of rectangle LOD pixels took another T there, a quarter of them another result). Disagreement 1 |
 | 7 | 1-cycle mode: unchanged | computes an LOD per pixel in 1-cycle mode (and copy mode, with TEX_LOD), moves TEXEL0's tile with TEX_LOD, and gives a 1-cycle combiner its fraction | **no** (as the choice says), and the reason given ("a level count of 0, where the tile does not move") holds only without DETAIL. Disagreement 3 |
 | 8 | the second cycle's TEXEL0 and TEXEL1 | TEXEL0: the first cycle's TEXEL1 (the same); TEXEL1: the next pixel's first texel | no for TEXEL1 (known; `cal_t1`, `streams/cycle2_texel1.rdps`) |
 | 9 | the 9th bit of `LOD >> 5` dropped before the log2 | the same (`log2table[(lod >> 5) & 0xff]`) | yes (units "300 texels", detail, level count 7) |
@@ -125,16 +126,17 @@ by up to 69 subtexels (`-v` lists them), most by 1 to 15. The LOD logic agrees
 on every pixel: only its inputs differ.
 
 **Fix** (`model_fix_divide.patch`): a function `n64_div(S, W, &range)` (the
-console's divide on the 16-bit integer halves, returning the 17-bit s11.5
-value and the range flags) and `n64_persp` (the same saturated to 16 bits for
-the texel), in `mrdp.c` after `s105_noperp` under `MRDP_N64`; then
+console's perspective divide on the 16-bit integer halves, returning the
+17-bit s11.5 value and the range flags) and `n64_persp` (the same saturated to
+16 bits for the texel), in `mrdp.c` after `s105_noperp` under `MRDP_N64`; then
 
 * `draw_pixel_cvg`: `s = n64_persp(at[AS], at[AW]); t = n64_persp(at[AT], at[AW]);`
   in place of the two `mrdp_persp(at[..] >> 4, at[AW])`;
 * `lod_pixel`: `s[k] = n64_div((int32_t)S, (int32_t)Wv, &rs); t[k] = n64_div((int32_t)T, (int32_t)Wv, &rt); oob |= rs || rt;`
   in place of the two `lod_persp` (which goes).
 
-The divide, as the patch has it (W's integer half `w16`, S's `s16`):
+The perspective divide, as the patch has it (W's integer half `w16`, S's
+`s16`):
 
 ```
 shift = 14 - (place of w16's top set bit among its low 15), 14 for 0
@@ -149,13 +151,13 @@ the texel's: saturated to 16 bits, an out-of-range one to the end it went past (
 with the console's two 64-entry tables (in the patch). With it: test_lod's
 floor 169,020 of 183,660 LOD pixels agree (21 before; what is left are the
 attribute interpolation's few subtexels, pre-existing), `persp_divide` goes
-from 16,705 differing colour words to 3, `cal_persp` from 23,717 to 6,935,
-and the 79 captured task dumps from 222,778 to 10,506. test_lod.c still passes
+from 16,705 differing colour words to 3, `cal_persp` from 23,717 to 6,935, and
+the 79 captured task dumps from 222,778 to 10,506. test_lod.c still passes
 (`all ok`), its level counts become 47,992, 4,488, 3,200, 2,560, 1,480, 1,500
 (docs/lod.md quotes 47,680, 4,800, 3,520, 2,240, 1,480, 1,500). The RTL's
-divider (`rdp_pix` P1 to P3) would become the console's: a 15-bit normaliser,
-the two 64-entry tables, a 16 x 15 product, which is smaller than today's 27 x
-27 products.
+perspective divider (`rdp_pix` P1 to P3) would become the console's: a 15-bit
+normaliser, the two 64-entry tables, a 16 x 15 product, which is smaller than
+today's 27 x 27 products.
 
 ### 3. 1-cycle and copy mode
 
@@ -184,9 +186,9 @@ the major edge, `j` = 0 to `length`, `length` the span's pixels less one;
   lodlength > 7) || (j == length && lodlength == 7)`; when `j == length &&
   lodlength > 7`, `N` is the next row's span start and `F = N + d`;
 * without a next row: `N = P + d`, `F = P + 2d`;
-* both through the divide (out of range: the far level); the LOD is the larger
-  of `|dS|`, `|dT|` between `N` and `F` alone (no next-line point, ones'
-  complement and sticky bit as in 2-cycle mode);
+* both through the perspective divide (out of range: the far level); the LOD
+  is the larger of `|dS|`, `|dT|` between `N` and `F` alone (no next-line
+  point, ones' complement and sticky bit as in 2-cycle mode);
 * level, far, magnified and the fraction as `mrdp_lod`; with TEX_LOD TEXEL0's
   tile is the tile plus the level (far: the level count), plus 1 with DETAIL
   when not magnified; TEXEL1 is not moved. A combiner that reads
@@ -200,7 +202,7 @@ the tile plus the level, plus 1 with DETAIL when not magnified. For a copy-mode
 texture rectangle (level count 0) that is: the tile plus 1 when DETAIL is set
 and its step a pixel is a texel or more.
 
-The model with `MRDP_EXACT` follows both rules (`lod1_pixel`, and the
+The model with `RDP_EXACT` follows both rules (`lod1_pixel`, and the
 copy-mode LOD in `draw_pixel_cvg`): it needs the span's position and the next
 row's start, which its walk (`draw_triangle_x`) gives each pixel. Without the
 switch docs/lod.md choice 7 stands, with its note that DETAIL at level count 0
@@ -222,11 +224,11 @@ result; "other inputs": S, T or the range flag at one of the three points
 differed (and how many still gave the same result); "logic": the same inputs,
 another result.
 
-Models: "without", the model without `MRDP_EXACT` (`rdpo_lod`); "patches",
+Models: "without", the model without `RDP_EXACT` (`rdpo_lod`); "patches",
 the same with `model_fix_texrect.patch` and `model_fix_divide.patch` applied
 (their figures, taken before rdpo set the eight tiles to zero, which moved only
 the floor's count without them, from 94,294); "exact", the model with
-`MRDP_EXACT` (`rdpo_exact`).
+`RDP_EXACT` (`rdpo_exact`).
 
 | suite | model | primitives differ | colour words | LOD unit (oracle inputs) | LOD pixels | agree | other inputs (same result) | logic |
 |---|---|---|---|---|---|---|---|---|
@@ -260,7 +262,7 @@ What still differs with the two patches is not the LOD: in `lod2` and `frac2`
 the attribute interpolation's few subtexels at the pixel (the "other inputs"
 move S and T at all three points alike) and untextured triangles with PERSP;
 in `rect` the 1-cycle rectangles (disagreement 3) and rectangle edge coverage.
-`MRDP_EXACT` has those rules too (below, and docs/rdp_exact.md); with the
+`RDP_EXACT` has those rules too (below, and docs/rdp_exact.md); with the
 switch the floor draws fewer LOD pixels, as its rows past 2048 pixels are not
 drawn.
 
@@ -280,7 +282,7 @@ through `task2rdps.sh`; none draws with an LOD), 44 that draw are identical
 (`pd2` 15, 318,965 pixels each; `tennis` 28; `mk64` 1), 17 differ (`wave` 16,
 `mk64` 1: 222,756 colour words in 6,310 primitives; 222,778 with the model's
 former CVG_X_ALPHA rule, which disagreement 2's figures start from) and 18
-draw nothing into the image compared (`doom`, `pd`). With `MRDP_EXACT`, 78
+draw nothing into the image compared (`doom`, `pd`). With `RDP_EXACT`, 78
 agree; what is left is in docs/rdp_exact.md, "What is left".
 
 * **The perspective divide** (disagreement 2): the console divides S, T and W's
@@ -294,11 +296,11 @@ agree; what is left is in docs/rdp_exact.md, "What is left".
   DaDx is large (`cal_aff`, and the LOD's "other inputs" in `lod2_exact`),
   shade by an LSB (`cal_shade`), depth by a few (`cal_z`, `mk64`).
 * **An untextured triangle with PERSP** (`streams/untextured_persp.rdps`): the
-  console's divide sees W = 0 and saturates S and T to 0x7FFF, so TEXEL0 is the
-  tile's texel there (its last, clamped); the model's S = T = 0 (texel 0, 0).
-  The model's note on Link's collar (TEXEL0 read with G_TEXTURE off) is this
-  case if that triangle is drawn with PERSP (the usual mode): the console then
-  reads the tile's far corner, not its first texel.
+  console's perspective divide sees W = 0 and saturates S and T to 0x7FFF, so
+  TEXEL0 is the tile's texel there (its last, clamped); the model's S = T = 0
+  (texel 0, 0). The model's note on Link's collar (TEXEL0 read with G_TEXTURE
+  off) is this case if that triangle is drawn with PERSP (the usual mode): the
+  console then reads the tile's far corner, not its first texel.
 * **Edges past 2048 pixels** (`streams/edge_2048.rdps`): the console's edges
   are 12 bits of whole pixels; an edge past 2047 counts as crossed and the
   row is not drawn; the model draws it. test_lod.c's floor has such rows (229

@@ -10,7 +10,7 @@ the LOD it also compares, pixel for pixel, the S and T each side took at the
 LOD's three points and what each made of them.
 
 The findings are in [RESULTS.md](RESULTS.md). The model built with
-`MRDP_EXACT` follows the console where the two differ:
+`RDP_EXACT` follows the console where the two differ:
 [docs/rdp_exact.md](../../docs/rdp_exact.md), each rule with its numbers.
 
 ## The oracle
@@ -39,12 +39,12 @@ make                  # build/rdpo, build/rdpo_lod, build/rdpo_exact, build/rdpg
 ./run.sh 50           # every suite, 50 seeds: one TOTAL line each, logs in build/logs/
 ```
 
-`MRDP_DIR=<dir>` (to `make` and `run.sh`) compares another copy of the model;
+`MODEL_DIR=<dir>` (to `make` and `run.sh`) compares another copy of the model;
 `ORACLE_DIR=<dir>` (to `make`) takes the oracle from elsewhere;
 `TRIAGE_DIR=<dir>` (to `run.sh`) finds the captured task dumps somewhere other
 than `build/triage` at the repository's root.
 
-`run.sh` runs every suite through the model without `MRDP_EXACT` (`rdpo`,
+`run.sh` runs every suite through the model without `RDP_EXACT` (`rdpo`,
 `rdpo_lod`) and with it (`rdpo_exact`), builds four copies of the model (without
 the switch) with one LOD choice changed (the mutants: all of DaDy, `|d|`, the
 walk reversed, no fraction without TEX_LOD) and shows that each differs from
@@ -57,9 +57,9 @@ In the tools image: `tools/docker/run.sh make -C sim/rdp_oracle B=build/linux`
 
 | program | what |
 |---|---|
-| `build/rdpo` | the model without `MRDP_EXACT` (its own divide too) and without `RDP_LOD` |
+| `build/rdpo` | the model without `RDP_EXACT` (its own perspective divide too) and without `RDP_LOD` |
 | `build/rdpo_lod` | the same with `RDP_LOD`, and the LOD comparison |
-| `build/rdpo_exact` | the model with `MRDP_EXACT` (docs/rdp_exact.md) and `RDP_LOD`, and the LOD comparison |
+| `build/rdpo_exact` | the model with `RDP_EXACT` (docs/rdp_exact.md) and `RDP_LOD`, and the LOD comparison |
 | `build/rdpgen SUITE [SEED [N]]` | writes a stream (below) to stdout |
 | `task2rdps.sh DUMP` | a captured graphics task dump (`build/triage/*/dumps`) as a stream, through `sim/rdp/rdp_task` built here |
 
@@ -149,5 +149,5 @@ each says in its header what it shows.
 | `rdpgen.c` | the streams |
 | `task2rdps.sh` | a task dump as a stream |
 | `run.sh` | all of it |
-| `model_fix_texrect.patch`, `model_fix_divide.patch` | the two model changes of RESULTS.md (disagreements 1 and 2) as patches of `lang/c/mrdp/mrdp.c` without `MRDP_EXACT`; they do not apply to it now, as `MRDP_EXACT` has both (rules 2 and 1 of docs/rdp_exact.md) |
+| `model_fix_texrect.patch`, `model_fix_divide.patch` | the two model changes of RESULTS.md (disagreements 1 and 2) as patches of `lang/c/mrdp/mrdp.c` without `RDP_EXACT`; they do not apply to it now, as `RDP_EXACT` has both (rules 2 and 1 of docs/rdp_exact.md) |
 | `streams/*.rdps` | the minimal streams |

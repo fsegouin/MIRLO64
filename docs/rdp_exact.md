@@ -1,4 +1,4 @@
-# MIRLO 64: the console's RDP rules (MRDP_EXACT)
+# MIRLO 64: the console's RDP rules (RDP_EXACT)
 
 The RDP's reference model, `lang/c/mrdp/mrdp.c` (built with `MRDP_N64`), was
 compared pixel for pixel with an independent, pixel-exact software RDP (the
@@ -12,12 +12,12 @@ benches keep passing until the RTL follows them:
 
 | what | where |
 |---|---|
-| the switch | `MRDP_EXACT`, with `MRDP_N64`; with `RDP_LOD` too for the LOD's rules (3, and parts of 2 and 7). Off by default |
-| the divide alone | `RDP_EXACT_DIV` (rule 1 only; `MRDP_EXACT` implies it): the model as `rtl/rdp` is, which `sim/rdp/build_rtl.sh` builds (with `RDP_LOD` and `RDP_CIMG32`) |
-| the console's divide | `mrdp_n64_div` in `mrdp.c` (declared in `mrdp.h` under `RDP_EXACT_DIV`), and `n64_persp` (static) for the texel |
+| the switch | `RDP_EXACT`, with `MRDP_N64`; with `RDP_LOD` too for the LOD's rules (3, and parts of 2 and 7). Off by default |
+| the perspective divide alone | `RDP_EXACT_DIV` (rule 1 only; `RDP_EXACT` implies it): the model as `rtl/rdp` is, which `sim/rdp/build_rtl.sh` builds (with `RDP_LOD` and `RDP_CIMG32`) |
+| the console's perspective divide | `mrdp_n64_div` in `mrdp.c` (declared in `mrdp.h` under `RDP_EXACT_DIV`), and `n64_persp` (static) for the texel |
 | a frame | `make rdp_task EXACT=1` in `sim/rdp` (with the Makefile's default `LOD=1`) |
-| the comparison | `sim/rdp_oracle`: `make` builds `build/rdpo_exact` (`MRDP_EXACT` and `RDP_LOD`), `./run.sh 50` runs it on every suite, the minimal streams and the captured dumps |
-| tests | `test_lod.c` checks `mrdp_n64_div` with `-DMRDP_EXACT` or `-DRDP_EXACT_DIV`; `test_cvg.c` (two checks take the console's values with the switch) and `test_cimg32.c` pass with and without it |
+| the comparison | `sim/rdp_oracle`: `make` builds `build/rdpo_exact` (`RDP_EXACT` and `RDP_LOD`), `./run.sh 50` runs it on every suite, the minimal streams and the captured dumps |
+| tests | `test_lod.c` checks `mrdp_n64_div` with `-DRDP_EXACT` or `-DRDP_EXACT_DIV`; `test_cvg.c` (two checks take the console's values with the switch) and `test_cimg32.c` pass with and without it |
 
 Without the switch the model is unchanged, byte for byte: `mrdp.o` (`-O2`,
 `MRDP_N64`) is the same object code with and without the switch's code in
@@ -26,7 +26,7 @@ all three.
 
 ## In short
 
-With `MRDP_EXACT` the model agrees with the oracle on every suite of
+With `RDP_EXACT` the model agrees with the oracle on every suite of
 `run.sh 50` (25 suites: 528 calibration primitives, 9,825 random ones and 176
 in the worked-step and floor streams; 5.48 million pixels drawn with an LOD,
 each with the oracle's inputs and result), on all 10 minimal streams, and on
@@ -35,9 +35,10 @@ primitives of one frame (`mk64`): the depth compare's use of the depth image's
 own dz (below, "What is left"). Without the switch the same dumps differ in
 222,756 colour words in 6,310 primitives.
 
-`rtl/rdp` divides as the console does (rule 1): its benches build the model
-with `RDP_EXACT_DIV`. It follows none of the other rules, and the benches
-build the model without `MRDP_EXACT`, so `rdp_regress.sh` passes.
+`rtl/rdp` does the perspective divide as the console does (rule 1): its
+benches build the model with `RDP_EXACT_DIV`. It follows none of the other
+rules, and the benches build the model without `RDP_EXACT`, so
+`rdp_regress.sh` passes.
 
 ## The rules
 
@@ -130,13 +131,14 @@ and the next row's start (`prim_t` `xj`, `xlen`, `xlodlen`, `xnvalid`,
 `xnrow`).
 
 **RTL**: `rdp_pix.v`'s LOD block (L1 to L3) in 1-cycle mode: the two points
-ahead are the next two pixels' own divides in the walk's order, so it is the
-neighbour scheme of docs/lod.md's variant (c) two pixels deep (three divides
-held), with the span-end cases choosing the next row's start, which `rdp_top.v`
-has once it has stepped `e[]` by DaDe for the next row (three 32-bit registers
-handed down with the row, and `lodlen`); the LOD_FRACTION input of the
-combiner's second cycle. About 150 to 250 ALUTs and 100 flip-flops, no DSP.
-Copy mode: the tile select on the group's step, about 20 ALUTs.
+ahead are the next two pixels' own perspective divides in the walk's order, so
+it is the neighbour scheme of docs/lod.md's variant (c) two pixels deep (three
+perspective divides held), with the span-end cases choosing the next row's
+start, which `rdp_top.v` has once it has stepped `e[]` by DaDe for the next
+row (three 32-bit registers handed down with the row, and `lodlen`); the
+LOD_FRACTION input of the combiner's second cycle. About 150 to 250 ALUTs and
+100 flip-flops, no DSP. Copy mode: the tile select on the group's step, about
+20 ALUTs.
 
 ### 4. Attribute interpolation
 
@@ -190,17 +192,18 @@ steps. The dz code: a 16-bit sum and a priority encoder, about 40 ALUTs.
 ### 5. An untextured triangle with PERSP
 
 **The console**'s S, T, W of a primitive without texture coefficients are 0
-and go through the divide all the same: with PERSP, W's integer half is 0, out
-of range, so S and T saturate to 0x7FFF and TEXEL0 is the tile's texel there
-(its last, clamped), not its first. Its 2-cycle second texel is the next
-tile's at the same point, as for any primitive.
+and go through the perspective divide all the same: with PERSP, W's integer
+half is 0, out of range, so S and T saturate to 0x7FFF and TEXEL0 is the
+tile's texel there (its last, clamped), not its first. Its 2-cycle second
+texel is the next tile's at the same point, as for any primitive.
 
 **Without the switch** the model takes S = T = 0 (texel 0, 0) and one pass.
 Link's collar (drawn with G_TEXTURE off, combiner TEXEL0 * SHADE) reads the
 tile's far corner on the console if it is drawn with PERSP.
 
-**With it**: `draw_pixel_cvg` takes a primitive's S, T through the divide whether
-it has texture coefficients or not (theirs are 0), and the second pass too.
+**With it**: `draw_pixel_cvg` takes a primitive's S, T through the perspective
+divide whether it has texture coefficients or not (theirs are 0), and the
+second pass too.
 
 **RTL**: `rdp_pix.v` P4: `tx16(dvs, wle3 && p_tex)` becomes `tx16(dvs,
 wle3)` (the comment there says it follows the model's 0); the two-pass test
@@ -395,13 +398,13 @@ in 2-cycle mode), copy mode of a texture other than RGBA 16 (the console
 copies the texel's raw bits; the model decodes and re-encodes, the same for
 RGBA 16 and an RGBA TLUT, not for IA 16, an IA TLUT, or 4- and 8-bit texels),
 and a texture rectangle drawn with PERSP (with the switch it goes through the
-divide with W = 0, as on the console; untested).
+perspective divide with W = 0, as on the console; untested).
 
 ## The RTL, in all
 
 | rule | where | about |
 |---|---|---|
-| 1 divide | `rdp_pix.v` P1 to P4 | done |
+| 1 perspective divide | `rdp_pix.v` P1 to P4 | done |
 | 2 rectangle next line | `rdp_top.v` `rect_setup`, `rdp_pix.v` L1 | 0 with rule 6, else 20 to 30 ALUTs |
 | 3 1-cycle and copy LOD | `rdp_pix.v` L1 to L3, `rdp_top.v` next row's start | 170 to 270 ALUTs, 100 FFs |
 | 4 attributes | `rdp_top.v` S_SETUP, `rdp_pix.v` P0, the dz code | 280 to 380 ALUTs, 80 FFs, 8 more multiplier clocks a row |

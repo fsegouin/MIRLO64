@@ -177,7 +177,7 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
  *   MRDP_NO_BLEND  no blender: a pixel is the combiner's output (no fog),
  *                  the colour image is never read, and a translucent surface
  *                  is drawn through a screen door by its alpha
- *   MRDP_EXACT     the console's rules where the model had its own (docs/rdp_exact.md): its span start and attribute
+ *   RDP_EXACT      the console's rules where the model had its own (docs/rdp_exact.md): its span start and attribute
  *                  steps, its 12-bit edges, rectangles walked as its primitives, copy mode by groups of pixels, TEXEL1
  *                  a pixel ahead, the LOD in 1-cycle and copy mode too. Off, as rtl/rdp does not follow them yet
  * (Without MRDP_NO_BLEND, MRDP_CVG, the model is rtl/rdp's: also the texture
@@ -233,7 +233,7 @@ typedef struct {
     uint16_t prim_z;                       /* (MRDP_N64: SET_PRIM_DEPTH's 15 bits << 1; the 18-bit depth is that << 2) */
     uint16_t prim_dz;                      /* MRDP_CVG: SET_PRIM_DEPTH's delta (the blender's shift without Z_CMP) */
     uint16_t sc_xh, sc_yh, sc_xl, sc_yl;   /* u10.2 */
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     uint8_t sc_field, sc_odd;              /* SET_SCISSOR's field mode: only the odd rows (sc_odd) or the even ones are drawn */
 #endif
     uint32_t cimg, cimg_width;             /* width in pixels */

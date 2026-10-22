@@ -1,7 +1,7 @@
 /* The N64's coverage in the model (MRDP_N64, MRDP_CVG; mrdp.h): constructed
  * triangles against the console's documented behaviour (Angrylion's RDP model).
  *   cc -O2 -DMRDP_N64 -I. test_cvg.c mrdp.c -o test_cvg && ./test_cvg
- * With -DMRDP_EXACT (docs/rdp_exact.md) two checks take the console's values: a shade's 9 bits, a Z's 19.
+ * With -DRDP_EXACT (docs/rdp_exact.md) two checks take the console's values: a shade's 9 bits, a Z's 19.
  */
 #include "mrdp.h"
 #include <stdio.h>
@@ -298,7 +298,7 @@ int main(void)
     setup(AA_OPA);
     cmd(0x3A000000u, 0x64646480u); CC_RGB(4, 3, 10, 7);
     SH_TRI(300, 600, -50, 450);
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     /* (the console's: the shade's 9 low bits, 256..383 to 255 and 384..511 to 0, so 600 is 88: G (88 - 100) * 128 is
      * negative, 0) */
     check("shade: 9 bits, (SHADE - PRIM) * PRIM_A, 300 -> 255 -> 78, 600 -> 88 -> 0", 12, 3, c5551(78, 0, 0, 1));
@@ -395,7 +395,7 @@ int main(void)
         /* outside the 18 bits: the far plane, and 0 */
         setup(Z_OPA); zval = 0x7FFFFFFFu; tri_vleft(10 << 16);
         if (ZWORD(12, 3) != 0xFFFC) { printf("FAIL depth past the far plane: %04x\n", ZWORD(12, 3)); fails++; }
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         /* (the console's: Z >> 13 as 19 bits, its top two bits 10 past the far plane, 11 below 0: 0x90000000 is past it) */
         setup(Z_OPA); zval = 0x90000000u; tri_vleft(10 << 16);
         if (ZWORD(12, 3) != 0xFFFC) { printf("FAIL depth with bit 31 and not 30: %04x\n", ZWORD(12, 3)); fails++; }

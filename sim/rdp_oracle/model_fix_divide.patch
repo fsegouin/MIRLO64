@@ -82,7 +82,7 @@
 -    if (v < -65536 || v > 65535) *oob = 1;
 -    return (int32_t)v;
 -}
-+/* (S, T at the LOD's three points: n64_div, the divide the pixel's own S, T take, its 17 bits and its range flag) */
++/* (S, T at the LOD's three points: n64_div, the perspective divide the pixel's own S, T take, its 17 bits and its range flag) */
  
  /* the larger of a point's two coordinate steps from the pixel, and prev: the
   * LOD so far (15 bits; bit 14 is sticky for any step of 512 texels or more) */

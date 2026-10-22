@@ -97,8 +97,8 @@ static inline int32_t s105_noperp(int32_t s)
     return v > 32767 ? 32767 : v < -32768 ? -32768 : v;
 }
 
-#if defined(MRDP_EXACT) && !defined(MRDP_CVG)
-#error "MRDP_EXACT is the N64's pixel pipeline's: build it with MRDP_N64 (and without MRDP_NO_BLEND)"
+#if defined(RDP_EXACT) && !defined(MRDP_CVG)
+#error "RDP_EXACT is the N64's pixel pipeline's: build it with MRDP_N64 (and without MRDP_NO_BLEND)"
 #endif
 #ifdef MRDP_CVG
 /* ---- the console's perspective divide (MRDP_CVG; docs/rdp.md, Coordinates) ---------
@@ -155,7 +155,7 @@ static int32_t n64_persp(int32_t s, int32_t w)
     return v > 32767 ? 32767 : v < -32768 ? -32768 : v;
 }
 #endif
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
 /* S, T, W (o) of a point m steps d along from b: the walk's points, wrapping as the console's adders do */
 static inline void x_pt(int32_t *o, const int32_t *b, int m, const int32_t *d)
 {
@@ -362,11 +362,11 @@ static mrdp_rgba_t texture_sample(const mrdp_t *r, int tilei, int32_t s105, int3
     return o;
 }
 
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
 /* Copy mode's texel (docs/rdp_exact.md, rule 6): the console's copy takes the group's coordinate through the tile's
  * shift and origin to whole texels and adds the pixel's place in the group (m), then mirrors and masks each by the
  * tile's mask (at most 10 bits; none without a mask), and never clamps: a copy that reads past its tile's rows reads the
- * TMEM after them, as the console's does. (s, t: s10.5 in 16 bits, the divide's.) */
+ * TMEM after them, as the console's does. (s, t: s10.5 in 16 bits, the perspective divide's.) */
 static int x_copy_axis(int32_t v, unsigned shift, unsigned lo, unsigned mask, unsigned mirror, int m)
 {
     v = (int16_t)v;
@@ -584,7 +584,7 @@ static int cc1_uses_texel0(const mrdp_t *r)
            sa_a == 1 || sb_a == 1 || mul_a == 1 || add_a == 1;
 }
 
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
 /* does the second combiner cycle (a 1-cycle pixel's one) read TEXEL1? The console's TEXEL1 there is a texel of the next
  * pixel (docs/rdp_exact.md, rules 3 and 7), which such a pixel then samples too */
 static int cc1_uses_texel1(const mrdp_t *r)
@@ -792,7 +792,7 @@ typedef struct {
                                       triangle, which the N64 walks right to left) and to the next line (DaDy, as kept) */
     int32_t rnx[2], rny[2];        /* a texture rectangle's S, T (s10.5) at the next pixel and on the next line: set per pixel */
 #endif
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     /* the console's walk (docs/rdp_exact.md), set per pixel: where the pixel is in its span and what follows the span,
      * which the 1-cycle LOD and the texels taken a pixel ahead depend on */
     int xj, xlen, xlodlen;         /* the pixel's place from the walk's start (the major edge's end of the span), the
@@ -953,8 +953,8 @@ static mrdp_lod_t lod_pixel(const mrdp_t *r, const prim_t *pr, const int32_t *at
     return mrdp_lod(r->other_h, r->min_level, pr->level, (unsigned)pr->tile, s, t, oob);
 }
 
-#ifdef MRDP_EXACT
-/* ---- the LOD in 1-cycle mode (MRDP_EXACT; docs/rdp_exact.md, rule 3) ----
+#ifdef RDP_EXACT
+/* ---- the LOD in 1-cycle mode (RDP_EXACT; docs/rdp_exact.md, rule 3) ----
  * The console computes an LOD in 1-cycle mode too, but from two points ahead of the pixel: the next pixel of the walk
  * (N) and the one after it (F), no next line. Near the end of a span it looks at the next row's span instead, by how
  * long the span is (lodlen: its pixels after the first, the scissored ones at its start included):
@@ -984,7 +984,7 @@ static void lod1_pts(const prim_t *pr, const int32_t *P, int q, int32_t *N, int3
     else if (ll == 7) { x_pt(N, n, 0, d); x_pt(F, n, 1, d); }
     else { x_pt(N, P, 1, d); x_pt(F, P, ll == 6 ? -1 : 2, d); }
 }
-/* a point's S, T through the divide the pixel's take, as the LOD keeps them (17 bits, the range flag) */
+/* a point's S, T through the perspective divide the pixel's take, as the LOD keeps them (17 bits, the range flag) */
 static void x_div(const mrdp_t *r, const int32_t *p, int32_t *s, int32_t *t, int *oob)
 {
     if (r->other_h & MRDP_H_PERSP) { int rs, rt; *s = mrdp_n64_div(p[0], p[2], &rs); *t = mrdp_n64_div(p[1], p[2], &rt); *oob |= rs || rt; }
@@ -1027,7 +1027,7 @@ static const uint32_t s_bl_recip[16] = { 0x3ffff, 0x20001, 0x10001, 0x0aaab, 0x0
 
 /* the highest set bit's place (0 for 0 and 1): the N64's dz encoding */
 static inline unsigned hibit(unsigned v) { unsigned e = 0; while (v > 1) { v >>= 1; e++; } return e; }
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
 /* the console's dz encoding: the OR of the places of the set bits (the place of the one set bit of a power of 2) */
 static inline unsigned x_dzcomp(unsigned v)
 {
@@ -1170,7 +1170,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
 
     /* depth: 18 bits (z_enc) */
     uint32_t depth;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     /* the console's (docs/rdp_exact.md, rule 4): a pixel without full coverage moves its Z and shade to its first covered
      * sample (offx quarters right, offy subscanlines down: the topmost covered subscanline, its leftmost sample), with
      * the steps' top bits; Z is 22 bits of the attribute >> 10, the depth its 19-bit result kept to 18 (negative: 0,
@@ -1203,7 +1203,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
      * doubled, or of SET_PRIM_DEPTH's delta), 4 bits */
     unsigned dzenc = (l & MRDP_L_Z_SRC_PRIM) ? hibit(r->prim_dz) : (pr->zbuf ? hibit(pr->dz) + 3u : 0u);
     if (dzenc > 15u) dzenc = 15u;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     /* the dz code the depth word keeps (its top two bits): the console's, the step in its units of 8 depth units (the
      * model's own code above is in depth units, 3 more, and keeps serving its depth compare and blender shifts) */
     const unsigned dzst = x_dzcomp((l & MRDP_L_Z_SRC_PRIM) ? r->prim_dz : (pr->xdzpix ? pr->xdzpix : 1u));
@@ -1216,11 +1216,11 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
     memset(&in, 0, sizeof in);
     mrdp_rgba_t tex_next = { 0, 0, 0, 0 };   /* the next tile's sample (TEXEL1 of the first cycle) */
     int have_next = 0;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     mrdp_rgba_t tex_ahead = { 0, 0, 0, 0 };  /* the next pixel's first texel (the second cycle's TEXEL1) */
     int have_ahead = 0;
 #endif
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     /* (the console's: 9 bits of the shade, at the first covered sample, then 256..383 saturated to 255 and 384..511, a
      * negative shade, to 0) */
     for (int c = 0; c < 4; c++) {
@@ -1245,11 +1245,11 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
          * not a mistake of the game's: a character's collar (G_TEXTURE off, combiner TEXEL0 * SHADE, then
          * ENV * COMBINED) is drawn that way, and with TEXEL0 = 0 it was black. */
         int32_t s = 0, t = 0;
-#ifdef MRDP_EXACT
-        /* (every primitive's S, T go through the divide, a rectangle's too, as the console walks it as a primitive
-         * with S, T in the integer halves; a primitive without texture coefficients has S = T = W = 0 there, so with
-         * PERSP W's integer half is 0, out of range, and S and T saturate to 0x7FFF: TEXEL0 is the tile's texel there
-         * (its last, clamped), not its first (docs/rdp_exact.md, rule 5)) */
+#ifdef RDP_EXACT
+        /* (every primitive's S, T go through the perspective divide, a rectangle's too, as the console walks it as a
+         * primitive with S, T in the integer halves; a primitive without texture coefficients has S = T = W = 0 there,
+         * so with PERSP W's integer half is 0, out of range, and S and T saturate to 0x7FFF: TEXEL0 is the tile's texel
+         * there (its last, clamped), not its first (docs/rdp_exact.md, rule 5)) */
         if (h & MRDP_H_PERSP) { s = n64_persp(at[AS], at[AW]); t = n64_persp(at[AT], at[AW]); }
         else { s = s105_noperp(at[AS] >> 5); t = s105_noperp(at[AT] >> 5); }
 #else
@@ -1270,7 +1270,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
                 r->lod_mag += L.magnify; r->lod_far += L.distant && !L.magnify;
             }
         }
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         /* 1-cycle mode: the console's LOD from the next pixel and the one after (lod1_pixel): TEX_LOD moves TEXEL0's
          * tile, and the one cycle reads LOD_FRACTION (with DETAIL the tile moves on even at a level count of 0) */
         if (cyc == 0 && lod1_wanted(r)) {
@@ -1279,7 +1279,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
             tile0 = L1.tile0;
         }
 #endif
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         if (cyc == 2) {
             if (h & RDP_H_TEX_LOD) {
                 /* copy mode with TEX_LOD (rule 3): an LOD from the group's next step and the one after; the tile plus the
@@ -1301,7 +1301,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
          * takes TEXEL0 for both: one fetch more per pixel is all rtl/rdp has. (Without texture coefficients:
          * TEXEL0 again, one pass.) */
         in.tex1 = in.tex;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         if (cyc == 1 && (cc0_uses_texel1(r) || cc1_uses_texel0(r))) {      /* (the next tile's texel, coefficients or not) */
 #else
         if (pr->tex && cyc == 1 && (cc0_uses_texel1(r) || cc1_uses_texel0(r))) {
@@ -1310,7 +1310,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
             if (cc0_uses_texel1(r)) in.tex1 = tex_next;
             have_next = 1;
         }
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         if (cyc == 1 && cc1_uses_texel1(r)) {
             /* 2-cycle mode, the second cycle's TEXEL1 (rule 7): the next pixel's first texel, at the next point of the
              * walk in the tile of that pixel's own LOD; at the span's last pixel, when the next row has a span and this
@@ -1369,7 +1369,7 @@ static void draw_pixel_cvg(mrdp_t *r, const prim_t *pr, int x, int y, const int3
              * the next pixel's tile sample: not kept). A pixel without texture coefficients keeps TEXEL0 as it is. */
             in.tex1 = in.tex;
             if (have_next) in.tex = tex_next;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
             if (have_ahead) in.tex1 = tex_ahead;
 #endif
         }
@@ -1828,8 +1828,8 @@ static void draw_triangle_aa(mrdp_t *r, const prim_t *pr, int aa_en, int lft, in
 }
 #endif /* MRDP_CVG */
 
-#ifdef MRDP_EXACT
-/* ---- the console's walk (MRDP_EXACT; docs/rdp_exact.md, rules 4 and 6) ----------------------
+#ifdef RDP_EXACT
+/* ---- the console's walk (RDP_EXACT; docs/rdp_exact.md, rules 4 and 6) ----------------------
  * A primitive (a triangle; a texture or fill rectangle is one too, as the console makes it) is walked as the console
  * walks it. Each row's four subscanlines put each edge in eighths of a pixel (a sticky bit for the rest), in its 12 bits
  * of whole pixels: an edge at or past 2048 pixels counts as left of the scissor, and the crossing test compares the
@@ -2050,7 +2050,7 @@ static void draw_triangle(mrdp_t *r, const uint32_t *w)
         s |= s >> 1; s |= s >> 2; s |= s >> 4; s |= s >> 8; s |= s >> 16;
         pr.dz = (s & 0xFFFFu) | 1u;
         pr.dzdy = zy;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         pr.xdzpix = x_dzpix(zx, zy);
 #endif
 #endif
@@ -2063,7 +2063,7 @@ static void draw_triangle(mrdp_t *r, const uint32_t *w)
      * YM's integer scanline as XH and XM are at YH's: taken back the quarter
      * rows between them. (As if at the scanline, a shallow low edge was off
      * by up to 3/4 of its slope: cracks all along it.) */
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     {
         /* DaDy of each attribute (the shade's and the texture's at words 10 and 14 of their blocks, Z's the 4th) */
         int32_t dy[NATTR] = { 0 };
@@ -2155,7 +2155,7 @@ static inline void texrect_st(const texrect_t *g, int x, int y, int32_t *ps, int
 }
 #endif
 
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
 /* A rectangle as the console draws it (docs/rdp_exact.md, rule 6): a primitive of its own walked as a left-major
  * triangle with vertical edges at XH and XL (their quarter pixels kept), YL taken to its row's last subscanline in fill
  * and copy mode, level count 0. A texture rectangle's S and T are s10.5 in the integer halves; the column-stepped one
@@ -2187,7 +2187,7 @@ static void draw_rect_x(mrdp_t *r, const uint32_t *w, int tex, int flip)
 #endif
 static void draw_texrect(mrdp_t *r, const uint32_t *w, int flip)
 {
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     draw_rect_x(r, w, 1, flip);
     return;
 #endif
@@ -2232,7 +2232,7 @@ static void draw_texrect(mrdp_t *r, const uint32_t *w, int flip)
 
 static void fill_rect(mrdp_t *r, const uint32_t *w)
 {
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
     draw_rect_x(r, w, 0, 0);
     return;
 #endif
@@ -2487,7 +2487,7 @@ static void execute(mrdp_t *r, const uint32_t *w)
     case MRDP_OP_SET_SCISSOR:
         r->sc_xh = (w[0] >> 12) & 0xFFF; r->sc_yh = w[0] & 0xFFF;
         r->sc_xl = (w[1] >> 12) & 0xFFF; r->sc_yl = w[1] & 0xFFF;
-#ifdef MRDP_EXACT
+#ifdef RDP_EXACT
         r->sc_field = (uint8_t)((w[1] >> 25) & 1u); r->sc_odd = (uint8_t)((w[1] >> 24) & 1u);
 #endif
         break;

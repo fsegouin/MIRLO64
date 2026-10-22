@@ -6,7 +6,7 @@ DEFS ?= -DMRDP_N64
 # EXACT=1: the console's rules the RTL does not follow yet (docs/rdp_exact.md), its LOD among them
 EXACT ?= 0
 ifeq ($(EXACT),1)
-DEFS += -DMRDP_EXACT
+DEFS += -DRDP_EXACT
 endif
 M = ../../lang/c/mrdp
 SRC = rdp_task.c ../rsp/rsp.c ../rsp/rsp.h $(M)/mrdp.c $(M)/mrdp.h $(M)/mrdp_setup.h

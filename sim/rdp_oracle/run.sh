@@ -1,14 +1,14 @@
 #!/bin/sh
 # Generate every suite's streams (build/streams/) and run them through the model
-# against the oracle: the model without MRDP_EXACT (rdpo, rdpo_lod) and with it
+# against the oracle: the model without RDP_EXACT (rdpo, rdpo_lod) and with it
 # (rdpo_exact: docs/rdp_exact.md, the console's rules). One TOTAL line a suite and build;
 # the full reports go to build/logs/. Usage: ./run.sh [seeds] (default 10)
 set -e
 cd "$(dirname "$0")"
 n=${1:-10}
-mrdp=${MRDP_DIR:-../../lang/c/mrdp}     # (the model: MRDP_DIR=<dir> for another copy, as the Makefile takes it)
-export MRDP_DIR="$(cd "$mrdp" && pwd)"
-mrdp=$MRDP_DIR
+model=${MODEL_DIR:-../../lang/c/mrdp}    # (the model: MODEL_DIR=<dir> for another copy, as the Makefile takes it)
+export MODEL_DIR="$(cd "$model" && pwd)"
+model=$MODEL_DIR
 make -s all
 rm -rf build/streams build/logs
 mkdir -p build/streams build/logs
@@ -40,11 +40,11 @@ run() {    # run BUILD SUITE...
         printf '%-9s %-19s %s\n' "$b" "$su" "$(sed -n 's/^TOTAL //p' build/logs/${b}_$su.log)"
     done
 }
-echo "== calibration, no LOD (rdpo; rdpo_exact: MRDP_EXACT, with the LOD)"
+echo "== calibration, no LOD (rdpo; rdpo_exact: RDP_EXACT, with the LOD)"
 for b in rdpo rdpo_exact; do
     run $b cal_flat cal_aa cal_shade cal_z cal_aff cal_persp cal_rect cal_t1
 done
-echo "== LOD (rdpo_lod: the model without MRDP_EXACT; rdpo_exact: with it)"
+echo "== LOD (rdpo_lod: the model without RDP_EXACT; rdpo_exact: with it)"
 for b in rdpo_lod rdpo_exact; do
     run $b units_cc0 units_cc1 units_cc2 units_cc3 floor floor_affine lod2 lod2_exact frac2 frac2_exact rect lod1 lod1_control lod1_level0 lod1_level0_detail lod2_t1 lod1_t1
 done
@@ -57,10 +57,10 @@ for m in "dy:s/^#define LOD_DY_MASK   (~0x7FFF)/#define LOD_DY_MASK   (~0)/" \
     n=${m%%:*}
     sed -e "${m#*:}" build/mrdp_hooked.c > build/mut/$n.c
     if cmp -s build/mut/$n.c build/mrdp_hooked.c; then echo "$n: the model's text has changed, no mutation made"; continue; fi
-    ${CC:-cc} -O2 -w -DMRDP_N64 -DRDP_LOD -I"$mrdp" rdpo.c build/mut/$n.c build/oracle.o -o build/mut/rdpo_$n
+    ${CC:-cc} -O2 -w -DMRDP_N64 -DRDP_LOD -I"$model" rdpo.c build/mut/$n.c build/oracle.o -o build/mut/rdpo_$n
     printf '%-9s %-19s %s\n' "mutant" "$n" "$(./build/mut/rdpo_$n build/streams/units_cc[0-9]_*.rdps | sed -n 's/^TOTAL //p')"
 done
-echo "== the minimal streams (streams/): colour, coverage and depth words that differ; without MRDP_EXACT | with it"
+echo "== the minimal streams (streams/): colour, coverage and depth words that differ; without RDP_EXACT | with it"
 words() {    # words BUILD STREAM: its differing colour, coverage and depth words
     ./build/$1 -q "$2" | sed -nE 's/^(SAME|DIFF) [^:]*: .*\(([0-9]+) colour, ([0-9]+) coverage, ([0-9]+) depth.*/\2 \3 \4/p'
 }
