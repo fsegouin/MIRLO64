@@ -5,11 +5,11 @@ its title screens, from the "No Controller Pak" screen on. Three parts make that
 
 | Part | Where | State |
 |---|---|---|
-| The model | `lang/c/mrdp/mrdp.c`, behind `MRDP_CIMG32` (off by default) | done; `lang/c/mrdp/test_cimg32.c` |
+| The model | `lang/c/mrdp/mrdp.c`, behind `RDP_CIMG32` (off by default) | done; `lang/c/mrdp/test_cimg32.c` |
 | The scan-out | `rtl/soc/n64_video.sv`, `rtl/soc/rcp_vi.sv`, `rtl/soc/mirlo_mips.sv`, the runtime's `lang/n64rt/n64rt_io.c` | done |
 | The RDP | `rtl/rdp/rdp_top.v`, `rdp_pix.v`, `rdp_mem.v` | done (its parameter `CIMG32`, 1 by default; "Implementation" below) |
 
-With `rdp_top`'s parameter `CIMG32` at 0, and in the model built without `MRDP_CIMG32`, a primitive sent while the
+With `rdp_top`'s parameter `CIMG32` at 0, and in the model built without `RDP_CIMG32`, a primitive sent while the
 colour image is a 32-bit one is dropped, as before.
 
 ## The rules
@@ -24,7 +24,7 @@ The public description is the N64 programming manual's blender section (15.5). W
   off in 32-bit mode "so the 3 LSBs do not get stepped on".
 - "You cannot copy the 32-bit RGBA color image type."
 
-The model (`MRDP_CIMG32`, which needs `MRDP_N64` and the blender) follows them:
+The model (`RDP_CIMG32`, which needs `MRDP_N64` and the blender) follows them:
 
 | What | Rule |
 |---|---|
@@ -136,7 +136,7 @@ that leaves the input unconnected (0) shows every picture as 16-bit, as before.
 
 ## The RDP: design
 
-What `rdp_top.v`, `rdp_pix.v` and `rdp_mem.v` need, so that the RTL writes what the model writes with `MRDP_CIMG32`
+What `rdp_top.v`, `rdp_pix.v` and `rdp_mem.v` need, so that the RTL writes what the model writes with `RDP_CIMG32`
 (the regression compares them word for word). The pixel pipeline itself does not change: it already works on 8-bit
 channels and expands a 16-bit memory pixel to 32 bits (`un565`); only the edges, where pixels come from and go to
 memory, learn a second format.
@@ -212,7 +212,7 @@ widths (Cyclone V: about two 2-to-1 bits an ALM), to be replaced by `tools/area2
 
 ### Its verification
 
-- `sim/rdp`'s `tb_rdp` with `-DMRDP_CIMG32` in its model, and a `TB_C32=1` mode as `TB_C8=1` is for an 8-bit image
+- `sim/rdp`'s `tb_rdp` with `-DRDP_CIMG32` in its model, and a `TB_C32=1` mode as `TB_C8=1` is for an 8-bit image
   (the random streams drawn into a 32-bit colour image, at widths 292, 296 and 320, with and without the SoC's memory
   timing); `tools/area2/rdp_regress.sh` gains those runs.
 - `tb_rdp` on Doom 64's fourth task (`build/triage/doom/dumps/task_gfx_003.bin`): "RTL == model" and 88,895 pixels.
@@ -220,11 +220,11 @@ widths (Cyclone V: about two 2-to-1 bits an ALM), to be replaced by `tools/area2
 
 ## Implementation
 
-The RTL draws into a 32-bit colour image as the model does with `MRDP_CIMG32` (and its `CIMG32_DITHER` at 1), word for
+The RTL draws into a 32-bit colour image as the model does with `RDP_CIMG32` (and its `CIMG32_DITHER` at 1), word for
 word, with no new block RAM and no DSP block. `rdp_top`'s parameter `CIMG32` (1 by default) turns it off: a primitive
 into a 32-bit image is then dropped as before, and the RTL is clock for clock the RTL before the change.
 `sim/rdp/build_rtl.sh` and `sim/rdp/Makefile` take a switch `C32` (1 by default) that builds the model with
-`MRDP_CIMG32` and sets the parameter; `C32=0` builds both without it.
+`RDP_CIMG32` and sets the parameter; `C32=0` builds both without it.
 
 ### As built, against the design
 

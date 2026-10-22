@@ -237,7 +237,7 @@ logic [9:0]  px0_f, pw_f;
 logic [8:0]  y0_f;
 logic [10:0] xs_f;
 logic        nofilt_f;             // a hi-res picture (512 pixels or more a row): the filters are off
-logic        px32_f;               // a 32-bit picture (N64FB only: MRDP's RGB565 has no such mode)
+logic        px32_f;               // a 32-bit picture (N64FB only: the RGB565 picture has no such mode)
 logic [1:0]  ann_s;                // the frame announced, from vid
 always_ff @(posedge clk) ann_s <= {ann_s[0], ann};
 // a woven frame: a serrated picture of the two pitches of its fields -- WIDTH 640 with Y_SCALE 2.0 (a field every other row; or
@@ -267,8 +267,9 @@ wire  [11:0] yan    = {2'b00, yacc} + ys_f;                    // (at most 0x3FF
 wire  [23:0] rowp_n = rowp + (yan[11] ? {12'd0, stride_f, 1'b0} : yan[10] ? {13'd0, stride_f} : 24'd0);
 // a word as the FIFO takes it: two pixels, the left one in the low half --
 // RGBA5551 as the game's (N64FB: its bit 0 the RDP's coverage, "complete"),
-// or MRDP's RGB565. A 32-bit picture's word goes through the same swap, one
-// pixel: {B, A} in the high half, {R, G} in the low (the vid side takes it so).
+// or RGB565 without N64FB. A 32-bit picture's word goes through the same
+// swap, one pixel: {B, A} in the high half, {R, G} in the low (the vid side
+// takes it so).
 wire  [31:0] rd_w = N64FB ? {m_rdata[15:0], m_rdata[31:16]} : m_rdata;
 // MIRLO_VI_AA: each word goes with its pixels' hidden coverage bits (the RDP's
 // plane, 1 MiB below the RDRAM: lang/c/mrdp/mrdp.h, layout.h) -- a group's

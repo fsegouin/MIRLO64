@@ -1,7 +1,7 @@
-/* 32-bit colour images in the model (MRDP_CIMG32; mrdp.h, docs/cimg32.md): worked cases against the rules the
+/* 32-bit colour images in the model (RDP_CIMG32; mrdp.h, docs/cimg32.md): worked cases against the rules the
  * N64 programming manual gives for them, and one scene drawn into a 16-bit image and a 32-bit one, compared pixel by
  * pixel.
- *   cc -O2 -DMRDP_N64 -DMRDP_CIMG32 -I. test_cimg32.c mrdp.c -o test_cimg32 && ./test_cimg32
+ *   cc -O2 -DMRDP_N64 -DRDP_CIMG32 -I. test_cimg32.c mrdp.c -o test_cimg32 && ./test_cimg32
  * The rules checked:
  *   - a pixel is a 32-bit word, R G B A from its lowest byte; the depth image stays 16-bit at the same pixel offset
  *   - fill writes the fill colour whole at each pixel and no hidden bits

@@ -11,7 +11,7 @@
  *   RDP_RAW=1: and the colour image as it is (prefix_N.raw)
  * It counts the pixels that took the texture LOD (docs/lod.md) by level.
  * rdp_task_cimg32 (make rdp_task_cimg32) draws into 32-bit colour images
- * (MRDP_CIMG32, docs/cimg32.md). The PPM is of the last colour image at its
+ * (RDP_CIMG32, docs/cimg32.md). The PPM is of the last colour image at its
  * own size: a 32-bit one's R, G, B bytes as they are.
  */
 #include <stdio.h>

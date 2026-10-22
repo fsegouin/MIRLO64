@@ -170,14 +170,14 @@ int mrdp_cmd_len(uint32_t w0);   /* 64-bit words, from a command's first word */
  *                IA 4/8/16, I 4/8) decoded when sampled
  *   TEXEL1       the first cycle of a 2-cycle pixel: the next tile's sample at the same S, T (a pixel
  *                whose first cycle reads it takes two clocks in rtl/rdp); its second cycle, TEXEL0 again
- *   colour image RGBA5551, as the game's (and its own reads and writes); MRDP_CIMG32: or RGBA8888 (below)
+ *   colour image RGBA5551, as the game's (and its own reads and writes); RDP_CIMG32: or RGBA8888 (below)
  * The pixel pipeline (combiner, blender, Z) is the same.
  *
  * With it:
  *   MRDP_NO_BLEND  no blender: a pixel is the combiner's output (no fog),
  *                  the colour image is never read, and a translucent surface
  *                  is drawn through a screen door by its alpha
- *   MRDP_CIMG32    32-bit colour images (SET_COLOR_IMAGE's size 3: RGBA8888, R at the lowest address, a pixel a 32-bit
+ *   RDP_CIMG32     32-bit colour images (SET_COLOR_IMAGE's size 3: RGBA8888, R at the lowest address, a pixel a 32-bit
  *                  word): the blender reads and writes the pixel's 8-bit channels, the coverage in the alpha byte's top
  *                  three bits and no hidden bits; RGB dithered as a 16-bit image's, not truncated; fill writes the fill
  *                  colour whole at each pixel; copy mode into one is not drawn (docs/cimg32.md), as rtl/rdp has it;
@@ -234,7 +234,7 @@ typedef struct {
     mrdp_tile_t tile[8];
     uint16_t tmem[4][1024];
     uint16_t tmem16[2048];                 /* MRDP_N64: TMEM as the N64's, in 16-bit words (see mrdp.c) */
-    uint8_t cimg_size;                     /* MRDP_N64: the colour image's (2: 16-bit, 1: 8-bit -- mrdp.c wr8; 3: 32-bit, drawn to only with MRDP_CIMG32) */
+    uint8_t cimg_size;                     /* MRDP_N64: the colour image's (2: 16-bit, 1: 8-bit -- mrdp.c wr8; 3: 32-bit, drawn to only with RDP_CIMG32) */
     uint8_t timg_size;                     /* MRDP_N64: the texture image's texel size */
 
     /* counters */

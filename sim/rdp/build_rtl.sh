@@ -12,10 +12,10 @@ MD="${MODEL_DIR:-$HERE/../../lang/c/mrdp}"     # (the model: MODEL_DIR=<dir> for
 export VERILATOR_ROOT="${VERILATOR_ROOT:-$HOME/local/usr/share/verilator}"
 V="${VERILATOR:-$HOME/local/usr/bin/verilator}"
 OBJ=${OBJ:-obj_rdp}; VD=""; CD="-DMRDP_N64"
-# C32=1: 32-bit colour images (docs/cimg32.md) in both, the model built with MRDP_CIMG32 and rdp_top's CIMG32 parameter
+# C32=1: 32-bit colour images (docs/cimg32.md) in both, the model built with RDP_CIMG32 and rdp_top's CIMG32 parameter
 # set; C32=0 without them in either (a copy of rtl/rdp from before them has no parameter: it drops such primitives)
 C32=${C32:-1}
-if [ "$C32" = 1 ]; then CD="$CD -DMRDP_CIMG32"; fi
+if [ "$C32" = 1 ]; then CD="$CD -DRDP_CIMG32"; fi
 grep -q "parameter CIMG32" "$R/rdp_top.v" && VD="-GCIMG32=$C32"
 cd "$HERE"
 # (make does not see the model's flags change: a build with other ones starts from an empty directory, or the model's

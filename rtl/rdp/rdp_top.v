@@ -12,7 +12,7 @@
 // The texture LOD of a 2-cycle primitive is the model's (docs/lod.md): rdp_pix
 // computes it; this module issues the pixels in the walk's order, with the
 // ghosts that needs, and gives the next line's S, T, W. A colour image may be a
-// 32-bit one (docs/cimg32.md, the model's MRDP_CIMG32): cimg32 below.
+// 32-bit one (docs/cimg32.md, the model's RDP_CIMG32): cimg32 below.
 //
 // Commands are executed one at a time. A primitive is drawn row by row: the
 // row's Z and color spans are read into on-chip line buffers, the pixels run
@@ -73,7 +73,7 @@ module rdp_top #(
     // image, the byte in a pixel's colour bits 15:8; the write engine puts a word's two pixels in their half of the
     // memory word (rdp_mem wr_c8). The rows must start on a 4-byte boundary, as a 16-bit image's.
     reg        cimg8;
-    // A 32-bit colour image (docs/cimg32.md; lang/c/mrdp/mrdp.c MRDP_CIMG32): a pixel is a word at cimg + (y * width + x)
+    // A 32-bit colour image (docs/cimg32.md; lang/c/mrdp/mrdp.c RDP_CIMG32): a pixel is a word at cimg + (y * width + x)
     // * 4, R G B and the coverage in the alpha byte's top three bits; the depth image keeps its 16-bit layout, and no
     // hidden coverage goes with it. The line buffers keep their blocks: the old colour buffer holds a pixel a word, the
     // new one {R8 G8 B8 cvg3} an entry (rdp_mem, rdp_pix), so a set holds 512 pixels of a row and a longer span is drawn
