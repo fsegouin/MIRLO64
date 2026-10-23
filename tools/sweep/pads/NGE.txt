@@ -3,8 +3,8 @@
 # folder is up at ~900, the Dam's opening (the truck in the tunnel) at ~1530, and Bond
 # on the dam with his pistol from ~1700 (A keeps cycling the weapon; he does not move).
 # Nearly every triangle from the folder on is drawn with texture LOD.
-# Format as in mk64.txt; run with:
-#   tools/sweep/sweep.py "roms/GoldenEye 007 (U) [!].z64" --seconds 40 --pad-file tools/sweep/pads/goldeneye.txt
+# Format as in NKT.txt; run with:
+#   tools/sweep/sweep.py "roms/GoldenEye 007 (U) [!].z64" --seconds 40 --pad-file tools/sweep/pads/NGE.txt
 500-503:10
 540-543:10
 580-583:10

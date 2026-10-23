@@ -51,31 +51,29 @@ hex as `APF_INPUT` has them (`8000` Start, `0010` A, `0020` B, `0001` / `0002` /
 the stick when no `INTERACT` is given), segments that overlap add their keys, and `#` starts a comment. The top of
 each file says what the script reaches, at which fields, and the command line with its `--seconds`. The scripts are
 timed for a first boot with no save; a run with `--saves`, or another runtime build, can move the screens, and the
-presses repeat or keep a margin for small shifts.
+presses repeat or keep a margin for small shifts. A script is named after the cartridge's ID, the three characters
+at ROM 0x3B..0x3D, as the save-type database (`n64savedb.txt`) has them.
 
 | Game | Script | What it reaches | Field |
 |---|---|---|---|
-| Super Mario 64 (USA) | `sm64.txt` | file A, Peach's letter, the intro's flight with Lakitu, the castle grounds (Mario not yet out of the pipe) | ~2300 |
-| Mario Kart 64 (U) | `mk64.txt` | 1P, Mario GP, 50cc, Mario, Mushroom Cup: Luigi Raceway, the pre-race camera, then the kart on the grid | ~1650, ~1740 |
-| Ocarina of Time (U) 1.2 | `oot.txt` | a new file, the game started, the opening narration over Link's house | ~2550 |
-| GoldenEye 007 (U) | `goldeneye.txt` | a new file, Mission 1: the Dam's opening, then Bond on the dam | ~1530, ~1700 on |
-| Perfect Dark (U) 1.1 | `perfect_dark.txt` | a new agent, the Perfect Menu, the Carrington Institute's room | ~1680 on |
-| Banjo-Kazooie (U) | `banjo_kazooie.txt` | no input: Spiral Mountain in the attract intro | ~1320 on |
-| Banjo-Tooie (U) | `banjo_tooie.txt` | no input: Banjo's house on its cliff, then the title over it | ~600, ~1140 |
-| Pilotwings 64 (U) | `pilotwings64.txt` | no input: the attract flight over Holiday Island, then the title | ~300, ~1280 |
+| Super Mario 64 (USA) | `NSM.txt` | file A, Peach's letter, the intro's flight with Lakitu, the castle grounds (Mario not yet out of the pipe) | ~2300 |
+| Mario Kart 64 (U) | `NKT.txt` | 1P, Mario GP, 50cc, Mario, Mushroom Cup: Luigi Raceway, the pre-race camera, then the kart on the grid | ~1650, ~1740 |
+| Ocarina of Time (U) 1.2 | `CZL.txt` | a new file, the game started, the opening narration over Link's house | ~2550 |
+| GoldenEye 007 (U) | `NGE.txt` | a new file, Mission 1: the Dam's opening, then Bond on the dam | ~1530, ~1700 on |
+| Perfect Dark (U) 1.1 | `NPD.txt` | a new agent, the Perfect Menu, the Carrington Institute's room | ~1680 on |
+| Banjo-Kazooie (U) | `NBK.txt` | no input: Spiral Mountain in the attract intro | ~1320 on |
+| Banjo-Tooie (U) | `NB7.txt` | no input: Banjo's house on its cliff, then the title over it | ~600, ~1140 |
+| Pilotwings 64 (U) | `NPW.txt` | no input: the attract flight over Holiday Island, then the title | ~300, ~1280 |
 
 The three "no input" files hold no segment, only what the run shows: run those games without `--pad-file`, which
-refuses a file with no segment. Ocarina of Time needs the D-cache snoop in the SoC (`SNOOP`, `docs/mips.md`) or a
-runtime that writes the SI replies through the D-cache; without either it reads every button as held and runs to the
-file select by itself.
+refuses a file with no segment.
 
 `--dumps` keeps the first 16 tasks of each kind, which are the boot's. The environment reaches the bench unchanged, so
 its own switches take later ones: `RSPDUMP_FRAME_FROM=<field>` starts the dumps at that field (the bench's count, as in
-the scripts) and `RSPDUMP_MAX=<n>` keeps n tasks of each kind instead of 16. Four graphics tasks of Bond on the dam
-(fish):
+the scripts) and `RSPDUMP_MAX=<n>` keeps n tasks of each kind instead of 16. Four graphics tasks from field 1700 on:
 
 ```
-env RSPDUMP_FRAME_FROM=1700 RSPDUMP_MAX=4 tools/sweep/sweep.py "roms/GoldenEye 007 (U) [!].z64" --seconds 30 --dumps --pad-file tools/sweep/pads/goldeneye.txt
+env RSPDUMP_FRAME_FROM=1700 RSPDUMP_MAX=4 tools/sweep/sweep.py roms/game.z64 --seconds 30 --dumps --pad-file tools/sweep/pads/<ID>.txt
 ```
 
 ## Two pictures: the video and the framebuffer

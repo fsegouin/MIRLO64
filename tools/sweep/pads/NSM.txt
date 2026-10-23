@@ -4,8 +4,8 @@
 # to ~1450). Then the intro's camera flight with Lakitu (sky ~1600, Lakitu ~1800, the
 # castle's tower ~2000-2100) ends on the castle grounds (castle, grass, trees: ~2300;
 # Mario not yet out of the pipe). All of it is drawn in 1-cycle: no texture LOD.
-# Format as in mk64.txt; run with:
-#   tools/sweep/sweep.py "roms/Super Mario 64 (USA).z64" --seconds 40 --pad-file tools/sweep/pads/sm64.txt
+# Format as in NKT.txt; run with:
+#   tools/sweep/sweep.py "roms/Super Mario 64 (USA).z64" --seconds 40 --pad-file tools/sweep/pads/NSM.txt
 610-615:8000
 720-724:10
 1100-1103:10
